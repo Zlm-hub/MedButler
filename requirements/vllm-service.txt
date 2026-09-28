@@ -1,0 +1,7 @@
+# ============================================================
+# MedButler vLLM 推理服务依赖（云端 / Linux）
+# 适用模块：deploy/launch-vllm（正式部署）、eval/llm/vllm-service（评估拉服务）
+# 安装：pip install -r requirements/vllm-service.txt -i https://mirrors.aliyun.com/pypi/simple/
+# ============================================================
+# 版本锁定自各 pyproject.toml + uv.lock；Windows 不可装
+vllm==0.19.0

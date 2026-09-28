@@ -1,0 +1,10 @@
+# ============================================================
+# MedButler LLM 评估依赖（eval/llm/evalscope，云端 / Linux）
+# 安装：pip install -r requirements/eval-llm.txt
+# ============================================================
+# 版本锁定自 eval/llm/evalscope/pyproject.toml + uv.lock
+evalscope==1.6.1
+accelerate==1.13.0
+torch==2.11.0
+omegaconf==2.3.0
+tiktoken==0.12.0

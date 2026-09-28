@@ -1,6 +1,5 @@
-from unsloth import FastLanguageModel, FastModel
-import torch
-from trl import SFTTrainer, SFTConfig
+from unsloth import FastLanguageModel
+from trl import SFTTrainer
 from datasets import load_dataset
 from unsloth import to_sharegpt
 from unsloth import standardize_sharegpt
@@ -8,8 +7,6 @@ from unsloth import is_bfloat16_supported
 from unsloth import apply_chat_template
 from transformers import TrainingArguments
 from transformers import TextStreamer
-from torchao.quantization import quantize_
-from torchao.quantization.qat import QATConfig
 
 max_seq_length = 4096
 
@@ -40,7 +37,7 @@ model = FastLanguageModel.get_peft_model(
    loftq_config = None,
 )
 
-dataset = load_dataset('json', data_files='../2-prepare-dataset/med-dataset-train.jsonl', split='train')
+dataset = load_dataset('json', data_files='../../data/prepare/med-dataset-train.jsonl', split='train')
 system_prompt = "你是一个专业的医疗健康顾问，能够提供有关体检指标异常的专业健康建议。"
 
 dataset = to_sharegpt(
@@ -83,7 +80,7 @@ trainer = SFTTrainer(
     ),
 )
 
-trainer_stats = trainer.train()
+trainer.train()
 
 FastLanguageModel.for_inference(model) # Enable native 2x faster inference
 
@@ -101,5 +98,4 @@ _ = model.generate(input_ids, streamer = text_streamer, max_new_tokens = 1024, p
 
 print("saving...")
 model.save_pretrained_merged("/root/autodl-tmp/qwen35-4b-med-llm", tokenizer)
-#tokenizer.save_pretrained("/root/autodl-tmp/qwen35-08b-finetuned-ffmpeglog")
 print("saved")

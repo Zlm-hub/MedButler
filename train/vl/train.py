@@ -1,16 +1,7 @@
-from unsloth import FastLanguageModel, FastModel, FastVisionModel
+from unsloth import FastLanguageModel, FastVisionModel
 from unsloth.trainer import UnslothVisionDataCollator
-import torch
 from trl import SFTTrainer, SFTConfig
 from datasets import load_dataset
-from unsloth import to_sharegpt
-from unsloth import standardize_sharegpt
-from unsloth import is_bfloat16_supported
-from unsloth import apply_chat_template
-from transformers import TrainingArguments
-from transformers import TextStreamer
-from torchao.quantization import quantize_
-from torchao.quantization.qat import QATConfig
 
 max_seq_length = 4096
 
@@ -39,7 +30,7 @@ model = FastLanguageModel.get_peft_model(
    loftq_config = None,
 )
 
-dataset = load_dataset(path="imagefolder", data_dir="./dataset-img-train")
+dataset = load_dataset(path="imagefolder", data_dir="../../data/images/train")
 
 instruction = "解读这个医学报告，一句话指出其中异常指标"
 
@@ -94,7 +85,7 @@ trainer = SFTTrainer(
     ),
 )
 
-trainer_stats = trainer.train()
+trainer.train()
 
 print("saving...")
 model.save_pretrained_merged("/root/autodl-tmp/qwen35-4b-med-vl", processor)

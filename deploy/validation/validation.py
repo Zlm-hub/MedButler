@@ -1,7 +1,6 @@
 import base64
 import requests
 import json
-import os
 from PIL import Image
 import io
 
@@ -30,9 +29,8 @@ def encode_image(image_path):
         img.save(buffered, format=img.format or 'JPEG')
         return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-def analyze_image(image_path): 
+def analyze_image(image_path):
     base64_image = encode_image(image_path)
-    # print(base64_image)
 
     response = requests.post(
         # 验证改这里 4-2
@@ -48,26 +46,19 @@ def analyze_image(image_path):
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "text",
-                            "text": "解读这个医学报告，一句话指出其中异常指标"
-                        },
-                        # 验证改这里 4-4
-                        # {
-                        #     "type": "image_url",
-                        #     "image_url": {
-                        #         "url": "https://www.familyhandyman.com/wp-content/uploads/2018/02/handcrafted-log-home.jpg"
-                        #     }
-                        # },
-                        {
-                            ## OpenAI 文档地址 https://platform.openai.com/docs/guides/images-vision
-                            ## 文档里 type 用的是 input_image，但不要用
+                                            {
+                        "type": "text",
+                        "text": "解读这个医学报告，一句话指出其中异常指标"
+                    },
+                    {
+                        ## OpenAI 文档地址 https://platform.openai.com/docs/guides/images-vision
+                        ## 文档里 type 用的是 input_image，但不要用
 
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpg;base64,{base64_image}",
-                            },
-                        }
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpg;base64,{base64_image}",
+                        },
+                    }
                     ]
                 }
             ],
@@ -75,10 +66,8 @@ def analyze_image(image_path):
     )
 
     result = response.json()
-    # print(result)
     output = result["choices"][0]["message"]["content"]
     return output
-    # print(output)
 
 
 image_list = [

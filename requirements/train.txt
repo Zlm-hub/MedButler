@@ -1,0 +1,7 @@
+# ============================================================
+# MedButler 训练依赖（云端 AutoDL / Linux，train/llm 与 train/vl 共用）
+# 安装：pip install -r requirements/train.txt -i https://mirrors.aliyun.com/pypi/simple/
+# ============================================================
+# 版本锁定自 train/{llm,vl}/pyproject.toml + uv.lock
+# torch 由 unsloth 依赖自动解析，需与 CUDA 版本匹配（4090D 上装 cu12x 轮子）
+unsloth==2026.5.2

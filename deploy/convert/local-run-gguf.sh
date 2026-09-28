@@ -26,6 +26,5 @@ cmake --build build --config Release -j --target llama-server llama-mtmd-cli
 # 浏览器开 http://localhost:8080 即可传图对话（同时是 OpenAI 兼容 API）
 
 # ---- 4. 接回 v4 前端 ----
-# 编辑 fastapi_v4_ui.py，把写死的 127.0.0.1:8000(LLM) 和 :8001(VL)
-# 两处都改成 127.0.0.1:8080 —— Qwen3.5-4B 是统一多模态模型，
-# 看图+给建议一个服务全包，不必再起两个。
+# v4 已统一走 llama-server(8080)：地址在 deploy/api/v4/.env 的 LLAMA_BASE_URL 配置，
+# 无需再改代码（Qwen3.5-4B 是统一多模态模型，看图+给建议一个服务全包）。
