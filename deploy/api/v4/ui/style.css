@@ -1,3 +1,22 @@
+/* ============================================================
+   MedButler v4 前端样式 —— 医疗青绿主题
+   主色 #0d9488 (teal-600)，辅色 #0f766e；浅色底，柔和阴影
+   ============================================================ */
+
+:root {
+    --primary: #0d9488;
+    --primary-dark: #0f766e;
+    --primary-light: #ccfbf1;
+    --primary-bg: #f0faf8;
+    --text-main: #1f2937;
+    --text-sub: #6b7280;
+    --bg: #f3f7f6;
+    --card: #ffffff;
+    --shadow-sm: 0 1px 3px rgba(15, 118, 110, 0.08);
+    --shadow-md: 0 4px 14px rgba(15, 118, 110, 0.12);
+    --radius: 16px;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -5,8 +24,12 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    background-color: #f0f2f5;
+    font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', Roboto, sans-serif;
+    background:
+        radial-gradient(ellipse at top left, rgba(13, 148, 136, 0.05), transparent 50%),
+        radial-gradient(ellipse at bottom right, rgba(13, 148, 136, 0.05), transparent 50%),
+        var(--bg);
+    color: var(--text-main);
     height: 100vh;
     overflow: hidden;
 }
@@ -18,49 +41,62 @@ body {
     max-width: 100%;
 }
 
+/* ---------- 顶栏 ---------- */
 .header {
-    background-color: #1890ff;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
     color: white;
-    padding: 15px;
+    padding: 16px;
     text-align: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     z-index: 10;
 }
 
 .header h1 {
     font-size: 1.2rem;
-    font-weight: 500;
+    font-weight: 600;
+    letter-spacing: 0.05em;
 }
 
+/* ---------- 聊天区 ---------- */
 .chat-container {
     flex: 1;
     overflow-y: auto;
-    padding: 15px;
+    padding: 18px 15px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 14px;
 }
 
 .welcome-message {
-    background-color: white;
-    border-radius: 10px;
-    padding: 15px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    margin-bottom: 10px;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+    border-left: 4px solid var(--primary);
+    margin-bottom: 6px;
 }
 
 .welcome-message p {
-    font-size: 0.9rem;
-    color: #666;
-    line-height: 1.5;
+    font-size: 0.92rem;
+    color: var(--text-main);
+    line-height: 1.6;
+    font-weight: 500;
 }
 
+.welcome-message .welcome-sub {
+    margin-top: 6px;
+    font-size: 0.84rem;
+    color: var(--text-sub);
+    font-weight: 400;
+}
+
+/* ---------- 消息气泡 ---------- */
 .message {
-    max-width: 80%;
-    padding: 12px 15px;
-    border-radius: 18px;
+    max-width: 82%;
+    padding: 13px 16px;
+    border-radius: var(--radius);
     font-size: 0.95rem;
-    line-height: 1.4;
+    line-height: 1.5;
     position: relative;
     animation: fadeIn 0.3s ease-out;
 }
@@ -78,16 +114,18 @@ body {
 
 .user-message {
     align-self: flex-end;
-    background-color: #1890ff;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
     color: white;
-    border-bottom-right-radius: 5px;
+    border-bottom-right-radius: 6px;
+    box-shadow: var(--shadow-sm);
 }
 
 .server-message {
     align-self: flex-start;
-    background-color: white;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    border-bottom-left-radius: 5px;
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(15, 118, 110, 0.08);
+    border-bottom-left-radius: 6px;
 }
 
 .image-message {
@@ -100,17 +138,20 @@ body {
 .image-message img {
     max-width: 100%;
     max-height: 200px;
-    border-radius: 10px;
+    border-radius: var(--radius);
     display: block;
     object-fit: cover;
+    box-shadow: var(--shadow-md);
 }
 
+/* ---------- 加载动画 ---------- */
 .loading-message {
     align-self: flex-start;
-    background-color: white;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    border-bottom-left-radius: 5px;
-    padding: 15px;
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(15, 118, 110, 0.08);
+    border-bottom-left-radius: 6px;
+    padding: 16px;
 }
 
 .loading-dots {
@@ -121,7 +162,7 @@ body {
 .loading-dots span {
     width: 8px;
     height: 8px;
-    background-color: #1890ff;
+    background-color: var(--primary);
     border-radius: 50%;
     margin: 0 3px;
     animation: bounce 1.5s infinite;
@@ -146,107 +187,150 @@ body {
 
 .timer {
     font-size: 0.8rem;
-    color: #999;
+    color: var(--text-sub);
     margin-top: 5px;
     text-align: center;
 }
 
+/* ---------- 分析 / 建议区块 ---------- */
 .analysis-section, .recommendation-section {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #eee;
+    margin-top: 4px;
 }
 
 .analysis-section h3, .recommendation-section h3 {
-    font-size: 1rem;
-    margin-bottom: 8px;
-    color: #333;
+    font-size: 0.98rem;
+    margin-bottom: 10px;
+    color: var(--primary-dark);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.analysis-section h3::before {
+    content: '📋';
+    font-size: 0.9rem;
+}
+
+.recommendation-section h3::before {
+    content: '💡';
+    font-size: 0.9rem;
 }
 
 .analysis-section p, .recommendation-section p {
     font-size: 0.9rem;
-    line-height: 1.5;
-    color: #555;
+    line-height: 1.6;
+    color: var(--text-main);
 }
 
 .markdown-content {
     font-size: 0.9rem;
-    line-height: 1.6;
-    color: #333;
+    line-height: 1.7;
+    color: var(--text-main);
 }
 
 .markdown-content h1 {
-    font-size: 1.5rem;
-    margin: 15px 0 10px 0;
-    color: #2c3e50;
+    font-size: 1.4rem;
+    margin: 14px 0 10px 0;
+    color: var(--primary-dark);
     font-weight: bold;
 }
 
 .markdown-content h2 {
-    font-size: 1.3rem;
+    font-size: 1.25rem;
     margin: 12px 0 8px 0;
-    color: #34495e;
+    color: var(--primary-dark);
     font-weight: bold;
 }
 
 .markdown-content h3 {
-    font-size: 1.1rem;
-    margin: 10px 0 6px 0;
-    color: #555;
+    font-size: 1.02rem;
+    margin: 12px 0 6px 0;
+    color: var(--primary-dark);
     font-weight: bold;
+    padding-left: 8px;
+    border-left: 3px solid var(--primary);
 }
 
 .markdown-content h4 {
-    font-size: 1rem;
+    font-size: 0.98rem;
     margin: 8px 0 4px 0;
-    color: #666;
+    color: var(--text-main);
     font-weight: bold;
 }
 
 .markdown-content h5,
 .markdown-content h6 {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     margin: 6px 0 3px 0;
-    color: #777;
+    color: var(--text-sub);
     font-weight: bold;
 }
 
 .markdown-content ul,
 .markdown-content ol {
     padding-left: 20px;
-    margin: 10px 0;
+    margin: 6px 0;
 }
 
 .markdown-content li {
-    margin-bottom: 5px;
+    margin-bottom: 6px;
+}
+
+.markdown-content li::marker {
+    color: var(--primary);
 }
 
 .markdown-content strong {
     font-weight: bold;
+    color: var(--primary-dark);
 }
 
 .markdown-content em {
     font-style: italic;
 }
 
+/* ---------- VL 思考过程 ---------- */
+.thinking-content {
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-sub);
+    font-style: italic;
+    max-height: 88px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--primary-bg);
+    border-left: 3px solid var(--primary);
+    border-radius: 6px;
+    padding: 6px 9px;
+    margin-bottom: 8px;
+}
+
+.thinking-content.thinking-hidden {
+    display: none;
+}
+
+/* ---------- 输入区 ---------- */
 .input-container {
-    background-color: white;
-    padding: 15px;
-    border-top: 1px solid #eee;
-    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+    background: var(--card);
+    padding: 14px 15px;
+    border-top: 1px solid rgba(15, 118, 110, 0.08);
+    box-shadow: 0 -2px 12px rgba(15, 118, 110, 0.06);
 }
 
 .image-preview-container {
     position: relative;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     display: inline-block;
 }
 
 .image-preview-container img {
     max-width: 100px;
     max-height: 100px;
-    border-radius: 8px;
+    border-radius: 10px;
     object-fit: cover;
+    box-shadow: var(--shadow-sm);
 }
 
 .remove-image-btn {
@@ -256,7 +340,7 @@ body {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background-color: #ff4d4f;
+    background-color: #ef4444;
     color: white;
     border: none;
     font-size: 14px;
@@ -264,6 +348,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: var(--shadow-sm);
 }
 
 .input-area {
@@ -279,57 +364,70 @@ body {
     align-items: center;
     justify-content: center;
     height: 60px;
-    border: 2px dashed #1890ff;
-    border-radius: 10px;
-    color: #1890ff;
+    border: 2px dashed var(--primary);
+    border-radius: 12px;
+    background: var(--primary-bg);
+    color: var(--primary-dark);
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.25s ease;
 }
 
 .image-input-label:hover {
-    background-color: #e6f7ff;
+    background: var(--primary-light);
+    border-color: var(--primary-dark);
+    transform: translateY(-1px);
 }
 
 .plus-icon {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: bold;
+    line-height: 1.1;
 }
 
 .send-button {
     height: 50px;
-    padding: 0 25px;
-    background-color: #1890ff;
+    padding: 0 26px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
     color: white;
     border: none;
     border-radius: 25px;
     font-size: 1rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: all 0.25s ease;
     flex-shrink: 0;
+    box-shadow: var(--shadow-sm);
 }
 
 .send-button:disabled {
-    background-color: #ccc;
+    background: #cbd5d3;
     cursor: not-allowed;
+    box-shadow: none;
+}
+
+.send-button:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
 .send-button:not(:disabled):active {
-    background-color: #40a9ff;
+    transform: translateY(0);
 }
 
+/* ---------- 移动端 ---------- */
 @media (max-width: 480px) {
     .message {
         max-width: 90%;
     }
-    
+
     .header h1 {
         font-size: 1.1rem;
     }
-    
+
     .input-area {
         flex-direction: column;
     }
-    
+
     .send-button {
         width: 100%;
         padding: 12px;
