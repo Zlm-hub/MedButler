@@ -10,11 +10,11 @@ def csv_to_dict(csv_file):
             data.append(row)
     return data
 
-question = csv_to_dict('question.csv')
+question = csv_to_dict('../raw/question.csv')
 for item in islice(question, 10):
     print(f"{item}")
 
-answer = csv_to_dict('answer.csv')
+answer = csv_to_dict('../raw/answer.csv')
 for item in islice(answer, 10):
     print(f"{item}")
 
@@ -48,20 +48,4 @@ for question, answer in merged_dict.items():
 
 with open('med-dataset.json', 'w', encoding='utf-8') as f:
     json.dump(result_list, f, indent=2, ensure_ascii=False)
-
-# total = len(result_list)
-# chunk_size = total // 3
-
-# part1 = result_list[:chunk_size]
-# part2 = result_list[chunk_size:2*chunk_size]
-# part3 = result_list[2*chunk_size:]
-
-# with open('med-dataset-train.json', 'w', encoding='utf-8') as f:
-#     json.dump(part1, f, indent=2, ensure_ascii=False)
-
-# with open('med-dataset-valid.json', 'w', encoding='utf-8') as f:
-#     json.dump(part2, f, indent=2, ensure_ascii=False)
-
-# with open('med-dataset-test.json', 'w', encoding='utf-8') as f:
-#     json.dump(part3, f, indent=2, ensure_ascii=False)
 

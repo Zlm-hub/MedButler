@@ -11,7 +11,7 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "1-eval"
+name = "evalscope"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
