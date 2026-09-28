@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>医疗报告助手</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>医疗报告助手</h1>
+        </header>
+        
+        <div class="chat-container" id="chatContainer">
+            <div class="welcome-message">
+                <p>欢迎使用医疗报告助手！请上传您的医疗检测报告图片以获取分析和健康建议。</p>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
+                <img id="imagePreview" src="" alt="Image preview">
+                <button class="remove-image-btn" id="removeImageBtn">×</button>
+            </div>
+            
+            <div class="input-area">
+                <label for="imageInput" class="image-input-label" id="imageInputLabel">
+                    <span class="plus-icon">+</span>
+                    <span>选择图片</span>
+                </label>
+                <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                <button id="sendButton" class="send-button" disabled>发送</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

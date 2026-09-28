@@ -42,34 +42,52 @@ graph LR
 - **前端**: 原生 HTML/CSS/JavaScript
 
 
-## 目录结构
+## 项目地图（模块结构）
+
+> 已按「数据 → 训练 → 评估 → 部署」生命周期重组，去掉 day1/day2 按天划分。
+> v4 为唯一主服务，v1–v3 与 prototype-images 归档至 `deploy/api/_archive/`。
 
 ```
-fine-tuning-project2-v3/
-├── day1/                          # Day 1: 模型训练与评估
-│   ├── 1-prototype-image/         # 原型设计截图
-│   ├── 2-prepare-dataset/        # 数据集准备
-│   │   ├── prepare_dataset.py    # 原始数据集处理
-│   │   ├── convert_to_evalscope_format.py
-│   │   └── split_dataset.py      # 数据集划分
-│   ├── 3-eval-llm/               # LLM 模型评估
-│   │   ├── 1-eval/               # EvalScope 评估
-│   │   ├── 2-vllm/               # vLLM 推理服务
-│   │   └── 3-app/                # 评估结果查看
-│   ├── 4-train-llm/              # LLM 微调训练
-│   ├── 5-train-vl/               # VL 多模态微调训练
-│   └── 6-vllm-vl/                # VL 模型验证
-│
-└── day2/                          # Day 2: 服务部署与应用
-    ├── 1-launch-vllm/            # vLLM 服务启动脚本
-    ├── 2-validation/             # 模型验证
-    │   └── test-img/             # 测试图像
-    └── 3-service/                # 医学检测报告解读服务
-        ├── v1/                   # 基础文件上传版本
-        ├── v2/                   # Base64 图像传输版本
-        ├── v3/                   # vLLM 集成版本
-        └── v4/                   # 完整 Web UI 版本
+MedButler/
+├── README.md
+├── data/                          # 数据准备与存储
+│   ├── prepare/                   # 数据集处理脚本（prepare_dataset / split / evalscope 转换）
+│   └── images/                    # 数据集图像
+│       ├── train/                 # 训练图像
+│       ├── test/                  # 测试图像
+│       └── test-vl/               # VL 验证图像
+├── train/                         # 微调训练
+│   ├── llm/                       # LLM 微调（Unsloth + LoRA）
+│   └── vl/                        # VL 多模态微调（含 vllm-validation/ 验证）
+├── eval/                          # 评估
+│   └── llm/                       # LLM 评估（EvalScope）
+└── deploy/                        # 部署与服务
+    ├── convert/                   # GGUF / 格式转换脚本
+    ├── launch-vllm/               # vLLM 服务启动脚本
+    ├── validation/                # 模型验证（含 test-img 测试图）
+    ├── api/
+    │   ├── v4/                    # ★ 主服务：完整 Web UI（FastAPI + 原生前端）
+    │   └── _archive/              # 历史版本归档
+    │       ├── v1/                #   基础文件上传版本
+    │       ├── v2/                #   Base64 图像传输版本
+    │       ├── v3/                #   vLLM 集成版本
+    │       └── prototype-images/  #   原型设计截图
+    └── (data 模块另有 images 数据集，见上)
 ```
+
+### 各模块职责速查
+
+| 模块 | 职责 | 入口 |
+| --- | --- | --- |
+| `data/prepare` | 原始数据集清洗、划分、转 EvalScope 格式 | `prepare_dataset.py` / `split_dataset.py` |
+| `data/images` | 训练/测试/VL 验证图像存放 | — |
+| `train/llm` | Qwen3.5-4B 文本微调（LoRA） | Unsloth 训练脚本 |
+| `train/vl` | Qwen3.5-4B-VL 多模态微调 | VL 训练脚本 |
+| `eval/llm` | 微调后 LLM 评估 | EvalScope |
+| `deploy/convert` | 模型转 GGUF 等格式 | 转换脚本 |
+| `deploy/launch-vllm` | 启动 vLLM 推理服务 | 启动脚本 |
+| `deploy/validation` | 模型验证与测试图 | 验证脚本 |
+| `deploy/api/v4` | 线上主服务（报告解读 + Web UI） | `fastapi_v4_ui.py` |
 
 ## 核心功能
 

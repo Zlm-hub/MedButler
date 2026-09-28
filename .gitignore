@@ -1,0 +1,18 @@
+# 字节码 / 缓存
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# Unsloth 编译缓存（训练时自动再生，非源码）
+unsloth_compiled_cache/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
