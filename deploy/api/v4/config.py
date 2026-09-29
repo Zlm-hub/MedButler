@@ -55,6 +55,9 @@ class Cfg:
     VL_MAX_TOKENS = _get("VL_MAX_TOKENS", 4096, int)
     VL_MAX_ATTEMPTS = _get("VL_MAX_ATTEMPTS", 3, int)
     VL_RETRY_TEMPERATURE = _get("VL_RETRY_TEMPERATURE", 0.3, float)
+    # 思考防复读：贪心解码(temp 0.0)下思考易陷入循环，加重复惩罚打断
+    VL_REPEAT_PENALTY = _get("VL_REPEAT_PENALTY", 1.1, float)
+    VL_REPEAT_LAST_N = _get("VL_REPEAT_LAST_N", 256, int)
 
     # LLM 生成（文本，关思考）
     LLM_MAX_TOKENS = _get("LLM_MAX_TOKENS", 2048, int)

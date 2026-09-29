@@ -152,6 +152,8 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                     ],
                     "max_tokens": cfg.VL_MAX_TOKENS,
                     "temperature": 0.0 if attempt == 0 else cfg.VL_RETRY_TEMPERATURE,
+                    "repeat_penalty": cfg.VL_REPEAT_PENALTY,
+                    "repeat_last_n": cfg.VL_REPEAT_LAST_N,
                     "stream": True,
                 }
                 log_event("vl_attempt_start", attempt=attempt, temperature=vl_payload["temperature"], max_tokens=cfg.VL_MAX_TOKENS, stream=True)
