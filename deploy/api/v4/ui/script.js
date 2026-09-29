@@ -28,18 +28,33 @@
     }
 
     function convertMarkdownToHtml(md) {
-        let html = escapeHtml(md);
-        html = html.replace(/^###\s*(.*$)/gm, '<h3>$1</h3>')
-                   .replace(/^##\s*(.*$)/gm, '<h3>$1</h3>')
-                   .replace(/^#\s*(.*$)/gm, '<h3>$1</h3>');
-        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        // 列表项（容错：模型偶尔漏掉 - 后的空格）
-        html = html.replace(/^\s*-\s*(.*)$/gm, '<li>$1</li>');
-        html = html.replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g, '<ul>$1</ul>');
-        html = html.replace(/(<\/ul>)\s*<ul>/g, '$1');
-        // 换行 -> <br>
-        html = html.replace(/ {2}\n/g, '<br>').replace(/\n/g, '<br>');
-        return html;
+        let escaped = escapeHtml(md);
+        escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        // 按行解析：标题/列表/空行/段落各归各位，空行不再产生垃圾 <br>
+        const lines = escaped.split('\n');
+        let out = '';
+        let inList = false;
+        for (const raw of lines) {
+            const line = raw.trim();
+            const h = line.match(/^#{1,3}\s*(.*)$/);
+            const li = line.match(/^-[\s]*(.*)$/);
+            if (h) {
+                if (inList) { out += '</ul>'; inList = false; }
+                out += '<h3>' + h[1] + '</h3>';
+            } else if (li) {
+                if (!inList) { out += '<ul>'; inList = true; }
+                out += '<li>' + li[1] + '</li>';
+            } else if (line === '') {
+                if (inList) { out += '</ul>'; inList = false; }
+            } else {
+                if (inList) { out += '</ul>'; inList = false; }
+                out += line + '<br>';
+            }
+        }
+        if (inList) out += '</ul>';
+        // 清理：标题前不留悬挂 <br>，结尾不留连续 <br>
+        out = out.replace(/<br>(?=<h3>)/g, '');
+        return out.replace(/(<br>)+$/g, '');
     }
 
     function scrollBottom() { chatScroll.scrollTop = chatScroll.scrollHeight; }

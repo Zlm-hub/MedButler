@@ -333,15 +333,20 @@ body {
     box-shadow: var(--shadow-sm);
 }
 .msg .bubble h3 {
-    font-size: 14px;
+    font-size: 13px;
+    font-weight: 600;
     color: var(--primary-dark);
+    background: var(--primary-light);
     border-left: 3px solid var(--primary);
-    padding-left: 8px;
-    margin: 10px 0 6px;
+    padding: 4px 10px;
+    border-radius: 0 6px 6px 0;
+    margin: 14px 0 8px;
 }
 .msg .bubble h3:first-child { margin-top: 0; }
-.msg .bubble ul { padding-left: 20px; margin: 4px 0; }
-.msg .bubble li { margin: 2px 0; }
+.msg .bubble ul { padding-left: 18px; margin: 4px 0 2px; }
+.msg .bubble li { margin: 4px 0; line-height: 1.6; }
+.msg .bubble li::marker { color: var(--primary); }
+.msg .bubble .suggestion-body h3:first-child { margin-top: 0; }
 .msg .bubble .section-title {
     font-size: 12px;
     color: var(--text-sub);
