@@ -152,21 +152,7 @@ body {
     justify-content: space-between;
     padding: 0 20px;
 }
-.topbar-tabs { display: flex; gap: 6px; }
-.topbar-tabs .tab {
-    border: none;
-    background: none;
-    font-size: 13px;
-    color: var(--text-sub);
-    padding: 6px 14px;
-    border-radius: 16px;
-    cursor: pointer;
-}
-.topbar-tabs .tab.active {
-    background: var(--primary-light);
-    color: var(--primary-dark);
-    font-weight: 500;
-}
+.topbar-title { font-size: 15px; font-weight: 500; color: var(--text-main); }
 .topbar-status {
     display: flex;
     align-items: center;

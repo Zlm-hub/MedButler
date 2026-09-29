@@ -109,16 +109,9 @@
         showWelcome();
     };
 
-    // 欢迎卡片 / 顶栏标签：聚焦输入框
+    // 欢迎卡片：聚焦输入框
     document.querySelectorAll('.feature-card[data-feature]').forEach(card => {
         card.onclick = () => textInput.focus();
-    });
-    document.querySelectorAll('.topbar-tabs .tab').forEach(tab => {
-        tab.onclick = () => {
-            document.querySelectorAll('.topbar-tabs .tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            textInput.focus();
-        };
     });
 
     /* ---------- 发送入口 ---------- */
