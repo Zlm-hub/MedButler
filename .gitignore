@@ -23,3 +23,4 @@ unsloth_compiled_cache/
 Thumbs.db
 .idea/
 .vscode/
+deploy/api/v4/users.db

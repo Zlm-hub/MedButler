@@ -49,7 +49,115 @@ body {
     text-align: center;
     box-shadow: var(--shadow-md);
     z-index: 10;
+    position: relative;
 }
+
+/* ---------- 认证区 ---------- */
+.auth-area {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.auth-user {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.95);
+}
+.auth-btn {
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    font-size: 13px;
+    padding: 5px 12px;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.auth-btn:hover { background: rgba(255, 255, 255, 0.25); }
+.auth-btn-primary { background: rgba(255, 255, 255, 0.9); color: var(--primary-dark); }
+.auth-btn-primary:hover { background: white; }
+
+.auth-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+.auth-modal {
+    position: relative;
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    width: min(320px, 88vw);
+    box-shadow: var(--shadow-md);
+}
+.auth-close {
+    position: absolute;
+    right: 10px;
+    top: 8px;
+    border: none;
+    background: none;
+    font-size: 20px;
+    color: var(--text-sub);
+    cursor: pointer;
+}
+.auth-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+.auth-tabs button {
+    flex: 1;
+    border: 1px solid #d8e4e1;
+    background: var(--bg);
+    color: var(--text-main);
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.auth-tabs button.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+.auth-form input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border: 1px solid #d8e4e1;
+    border-radius: 8px;
+    font-size: 14px;
+}
+.auth-form input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+.auth-error {
+    color: #dc2626;
+    font-size: 12px;
+    min-height: 16px;
+    margin-bottom: 6px;
+}
+.auth-submit {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background: var(--primary);
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+}
+.auth-submit:hover { background: var(--primary-dark); }
+.auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .header h1 {
     font-size: 1.2rem;

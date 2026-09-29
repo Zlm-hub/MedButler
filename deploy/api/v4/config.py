@@ -80,5 +80,16 @@ class Cfg:
     # 日志
     LOG_LEVEL = _get("LOG_LEVEL", "INFO").upper()
 
+    # 认证（用户/管理员模块）
+    # 会话签名密钥：留空则每次重启随机生成（所有登录失效），建议在 .env 固化
+    AUTH_SECRET = _get("AUTH_SECRET", "")
+    # 是否强制登录后才能使用报告解读（1=强制，0=开放）
+    REQUIRE_LOGIN = _get("REQUIRE_LOGIN", "0") == "1"
+    # 会话有效期（小时）
+    SESSION_TTL_HOURS = _get("SESSION_TTL_HOURS", 168, int)
+    # 管理员账号：服务首次启动时若无管理员则自动播种
+    ADMIN_USERNAME = _get("ADMIN_USERNAME", "")
+    ADMIN_PASSWORD = _get("ADMIN_PASSWORD", "")
+
 
 cfg = Cfg()

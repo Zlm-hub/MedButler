@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File
+from fastapi import FastAPI, File, Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from typing import Annotated
@@ -11,6 +11,10 @@ import httpx
 
 from config import cfg
 from logger import log_event, Timer, get_recent_logs
+from auth import router as auth_router, get_current_user
+
+app = FastAPI()
+app.include_router(auth_router)
 
 LLM_BASE_URL = cfg.LLAMA_BASE_URL
 # 流式下 read 超时 = 相邻两个 chunk 的最大间隔（生成中 token 间隔很短），
@@ -90,16 +94,20 @@ async def _iter_sse_lines(resp):
         delta = (choices[0] or {}).get("delta") or {}
         yield (delta.get("reasoning_content") or "", delta.get("content") or "")
 
-app = FastAPI()
-
 @app.post("/image")
 @app.post("/image/")
-async def analyze_image(files: Annotated[list[bytes], File()]):
+async def analyze_image(request: Request, files: Annotated[list[bytes], File()]):
     async def event_stream():
         t_total = Timer()
 
         def emit(obj):
             return json.dumps(obj, ensure_ascii=False) + "\n"
+
+        # 可选强制登录（.env REQUIRE_LOGIN=1 时生效）
+        if cfg.REQUIRE_LOGIN and not get_current_user(request):
+            log_event("收到未登录请求，已拒绝（REQUIRE_LOGIN=1）", level="warning")
+            yield emit({"stage": "error", "detail": "请先登录后再使用报告解读功能"})
+            return
 
         try:
             if len(files[0]) <= 100:
