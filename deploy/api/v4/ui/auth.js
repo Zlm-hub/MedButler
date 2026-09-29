@@ -18,7 +18,14 @@
         Object.entries(views).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
         if (name === 'profile') renderProfile();
     }
-    window.MedShell = { showView };
+    window.MedShell = { showView, getUser: () => currentUser };
+
+    // 登录态变更时通知下游（script.js 挂 window.MedShell.onAuthChanged）
+    function notifyAuthChanged() {
+        if (typeof window.MedShell.onAuthChanged === 'function') {
+            window.MedShell.onAuthChanged(currentUser);
+        }
+    }
 
     /* ---------- 侧栏用户区 ---------- */
     function renderSidebarUser() {
@@ -88,6 +95,7 @@
                 currentUser = { username: data.username, role: data.role };
                 renderSidebarUser();
                 showView('app');
+                notifyAuthChanged();
             }
         } catch (e) {
             errEl.textContent = '网络异常，请重试';
@@ -121,6 +129,7 @@
         await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
         currentUser = null;
         renderSidebarUser();
+        notifyAuthChanged();
         openAuth('login');
     }
 
@@ -142,6 +151,7 @@
         .then(user => {
             currentUser = user;
             renderSidebarUser();
+            notifyAuthChanged();
             // 深链：#/auth 直接打开登录页（未登录时）
             if (location.hash === '#auth' && !user) openAuth('login');
         })

@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MedButler · 私人健康管家</title>
-    <link rel="stylesheet" href="style.css?v=20260929e">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="style.css?v=20260929i">
 </head>
 <body>
     <!-- ============ 主应用视图 ============ -->
     <div id="appView" class="app-layout">
         <aside class="sidebar">
             <div class="sidebar-logo">
-                <div class="logo-icon">🩺</div>
+                <div class="logo-icon"><img src="logo-mark.png" alt="MedButler"></div>
                 <div class="logo-text">
                     <b>MedButler</b>
                     <span>私人健康管家</span>
@@ -23,6 +24,11 @@
             <nav class="sidebar-nav">
                 <a class="nav-item active" data-nav="chat"><span>💬</span> 健康对话</a>
             </nav>
+
+            <div class="conv-section" id="convSection" style="display:none">
+                <div class="conv-label">会话记录</div>
+                <div class="conv-list" id="convList"></div>
+            </div>
 
             <div class="sidebar-spacer"></div>
             <div class="sidebar-user" id="sidebarUser"></div>
@@ -40,7 +46,7 @@
 
             <main class="chat-scroll" id="chatScroll">
                 <div class="welcome" id="welcomeBlock">
-                    <div class="welcome-icon">🩺</div>
+                    <div class="welcome-icon"><img src="logo-mark.png" alt="MedButler"></div>
                     <h1>你好，我是 MedButler</h1>
                     <p class="welcome-sub">直接问我健康问题，或发送报告图片，我会自动识别并解读</p>
                     <div class="feature-grid">
@@ -81,7 +87,7 @@
     <!-- ============ 登录 / 注册视图 ============ -->
     <div id="authView" class="auth-page hidden">
         <div class="auth-card">
-            <div class="auth-logo">🩺</div>
+            <div class="auth-logo"><img src="logo-mark.png" alt="MedButler"></div>
             <h1>MedButler</h1>
             <p class="auth-sub">登录后体验完整的健康管家服务</p>
             <div class="auth-tabs">
@@ -99,7 +105,7 @@
     <!-- ============ 个人中心视图 ============ -->
     <div id="profileView" class="profile-page hidden">
         <div class="profile-card">
-            <div class="profile-avatar">🩺</div>
+            <div class="profile-avatar"><img src="logo-mark.png" alt="MedButler"></div>
             <h2 id="profileUsername">-</h2>
             <span class="role-badge" id="profileRole">-</span>
             <div class="profile-meta" id="profileMeta">注册时间：-</div>
@@ -112,7 +118,7 @@
         </div>
     </div>
 
-    <script src="auth.js?v=20260929e"></script>
-    <script src="script.js?v=20260929e"></script>
+    <script src="auth.js?v=20260929i"></script>
+    <script src="script.js?v=20260929j"></script>
 </body>
 </html>

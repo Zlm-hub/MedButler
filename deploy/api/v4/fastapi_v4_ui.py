@@ -1,5 +1,5 @@
-from fastapi import FastAPI, File, Request
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi import FastAPI, File, Form, Request, HTTPException
+from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Annotated
@@ -13,6 +13,7 @@ import httpx
 from config import cfg
 from logger import log_event, Timer, get_recent_logs
 from auth import router as auth_router, get_current_user
+import chat_store as store
 
 app = FastAPI()
 app.include_router(auth_router)
@@ -97,7 +98,11 @@ async def _iter_sse_lines(resp):
 
 @app.post("/image")
 @app.post("/image/")
-async def analyze_image(request: Request, files: Annotated[list[bytes], File()]):
+async def analyze_image(
+    request: Request,
+    files: Annotated[list[bytes], File()],
+    conversation_id: str = Form(""),
+):
     async def event_stream():
         t_total = Timer()
 
@@ -105,10 +110,22 @@ async def analyze_image(request: Request, files: Annotated[list[bytes], File()])
             return json.dumps(obj, ensure_ascii=False) + "\n"
 
         # 可选强制登录（.env REQUIRE_LOGIN=1 时生效）
-        if cfg.REQUIRE_LOGIN and not get_current_user(request):
+        user = get_current_user(request)
+        if cfg.REQUIRE_LOGIN and not user:
             log_event("收到未登录请求，已拒绝（REQUIRE_LOGIN=1）", level="warning")
             yield emit({"stage": "error", "detail": "请先登录后再使用报告解读功能"})
             return
+
+        # 登录用户：解读结果落进会话（历史记忆）；conv_id 无效/非本人时自愈为新建
+        conv_id = ""
+        if user:
+            conv_id = (conversation_id or "").strip()
+            if conv_id and store.conversation_owner(conv_id) != user["username"]:
+                log_event(f"会话 {conv_id} 不属于当前用户，自动新建", level="warning")
+                conv_id = ""
+            if not conv_id:
+                conv_id = store.create_conversation(user["username"])
+            yield emit({"stage": "conv", "id": conv_id})
 
         try:
             if len(files[0]) <= 100:
@@ -321,6 +338,25 @@ async def analyze_image(request: Request, files: Annotated[list[bytes], File()])
             log_event(f"健康建议生成完成：耗时 {t_llm.elapsed():.2f}s，长度 {len(suggestion)} 字")
 
             yield emit({"stage": "recommendations", "data": suggestion})
+
+            # 落库：图片解读入会话（转录+建议同存，后续 /chat 追问可带报告上下文）
+            if user and conv_id and suggestion:
+                # 原图落盘（历史回看用）；失败不阻断主流程，只是这条历史没图
+                image_path = ""
+                try:
+                    fmt = (Image.open(io.BytesIO(files[0])).format or "JPEG").upper()
+                    ext = {"JPEG": "jpg", "PNG": "png", "WEBP": "webp", "GIF": "gif", "BMP": "bmp"}.get(fmt, "jpg")
+                    image_path = store.save_image(conv_id, files[0], ext)
+                except Exception as e:
+                    log_event(f"报告图片落盘失败（不影响解读）：{e!r}", level="warning")
+                store.add_message(conv_id, "user", "（我上传了一张报告图片）", image_path)
+                store.add_message(
+                    conv_id, "assistant",
+                    f"【报告转录】\n{transcript}\n\n【解读与建议】\n{suggestion}",
+                )
+                store.touch_conversation(conv_id, first_message=transcript)
+                log_event(f"解读结果已存入会话 {conv_id}（转录 {len(transcript)} 字 / 建议 {len(suggestion)} 字）")
+
             log_event(
                 f"请求处理完成：总耗时 {t_total.elapsed():.2f}s"
                 f"（转录 {len(transcript)} 字 / 建议 {len(suggestion)} 字）"
@@ -349,6 +385,7 @@ def recent_logs(lines: int = 200):
 class ChatBody(BaseModel):
     message: str
     history: list = []
+    conversation_id: str = ""  # 登录用户携带会话 ID；留空则自动新建一条
 
 @app.post("/chat")
 @app.post("/chat/")
@@ -358,24 +395,47 @@ async def chat(request: Request, body: ChatBody):
             return json.dumps(obj, ensure_ascii=False) + "\n"
 
         # 可选强制登录（与 /image 共用同一开关）
-        if cfg.REQUIRE_LOGIN and not get_current_user(request):
+        user = get_current_user(request)
+        if cfg.REQUIRE_LOGIN and not user:
             yield emit({"stage": "error", "detail": "请先登录后再使用健康问答功能"})
             return
+
+        # 登录用户：服务端按会话取记忆（最近 5 轮），不再信任前端传的 history；
+        # conv_id 无效/非本人时自愈为新建
+        conv_id = ""
+        if user:
+            conv_id = (body.conversation_id or "").strip()
+            if conv_id and store.conversation_owner(conv_id) != user["username"]:
+                log_event(f"会话 {conv_id} 不属于当前用户，自动新建", level="warning")
+                conv_id = ""
+            if not conv_id:
+                conv_id = store.create_conversation(user["username"])
+            yield emit({"stage": "conv", "id": conv_id})
 
         message = body.message.strip()
         if not message:
             yield emit({"stage": "error", "detail": "消息不能为空"})
             return
 
-        log_event(f"收到问答请求：{len(message)} 字（携带 {len(body.history)} 条历史）")
+        log_event(
+            f"收到问答请求：{len(message)} 字"
+            + (f"（会话 {conv_id}）" if conv_id else "（未登录，前端内存记忆）")
+        )
         t_chat = Timer()
 
         # 4B 模型长文生成是塌缩重灾区：系统提示里限制篇幅 + 结构化
+        if user and conv_id:
+            history_msgs = store.build_context(conv_id)
+        else:
+            history_msgs = [
+                m for m in body.history[-10:]
+                if m.get("role") in ("user", "assistant") and m.get("content")
+            ]
         messages = (
             [{"role": "system", "content":
                 "你是 MedButler 私人健康管家，用通俗中文回答健康问题，"
                 "给出实用建议，篇幅控制在 300 字以内，重要提醒放在最后（以医生意见为准）。"}]
-            + [m for m in body.history[-10:] if m.get("role") in ("user", "assistant") and m.get("content")]
+            + history_msgs
             + [{"role": "user", "content": message}]
         )
         payload = {
@@ -428,6 +488,12 @@ async def chat(request: Request, body: ChatBody):
                 yield emit({"stage": "error", "detail": "回答生成异常，请换个问法重试"})
                 return
 
+        # 落库：登录用户把问答写进会话（首轮消息自动成为会话标题）
+        if user and conv_id and answer:
+            store.add_message(conv_id, "user", message)
+            store.add_message(conv_id, "assistant", answer)
+            store.touch_conversation(conv_id, first_message=message)
+
         yield emit({"stage": "done"})
 
     return StreamingResponse(
@@ -435,6 +501,59 @@ async def chat(request: Request, body: ChatBody):
         media_type="application/x-ndjson",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+# ---------- 会话管理（历史会话，登录用户专用；owner 不符一律 404 防探测） ----------
+def _require_user(request: Request) -> dict:
+    user = get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="未登录")
+    return user
+
+
+@app.post("/api/chat/conversations")
+def api_create_conversation(request: Request):
+    user = _require_user(request)
+    conv_id = store.create_conversation(user["username"])
+    log_event(f"新建会话 {conv_id}（用户 {user['username']}）")
+    return {"id": conv_id}
+
+
+@app.get("/api/chat/conversations")
+def api_list_conversations(request: Request):
+    user = _require_user(request)
+    return {"items": store.list_conversations(user["username"])}
+
+
+@app.get("/api/chat/conversations/{conv_id}/messages")
+def api_get_messages(conv_id: str, request: Request):
+    user = _require_user(request)
+    if store.conversation_owner(conv_id) != user["username"]:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return {"messages": store.get_messages(conv_id)}
+
+
+@app.delete("/api/chat/conversations/{conv_id}")
+def api_delete_conversation(conv_id: str, request: Request):
+    user = _require_user(request)
+    if not store.delete_conversation(user["username"], conv_id):
+        raise HTTPException(status_code=404, detail="会话不存在")
+    log_event(f"删除会话 {conv_id}（用户 {user['username']}）")
+    return {"ok": True}
+
+
+# 历史会话里的上传图片：登录 + 会话归属校验后回源（文件名只允许会话目录内的媒体文件）
+@app.get("/api/chat/media/{conv_id}/{fname}")
+def api_chat_media(conv_id: str, fname: str, request: Request):
+    user = _require_user(request)
+    if store.conversation_owner(conv_id) != user["username"]:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    if not re.fullmatch(r"[0-9a-f]{24}\.(jpg|jpeg|png|webp|gif|bmp)", fname):
+        raise HTTPException(status_code=404, detail="文件不存在")
+    abs_path = store.media_file(f"{conv_id}/{fname}")
+    if not abs_path:
+        raise HTTPException(status_code=404, detail="文件不存在")
+    return FileResponse(abs_path)
+
 
 # 挂载静态文件目录
 app.mount("/", StaticFiles(directory="ui", html=True), name="ui")

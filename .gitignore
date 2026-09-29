@@ -24,3 +24,7 @@ Thumbs.db
 .idea/
 .vscode/
 deploy/api/v4/users.db
+media/
+
+# 运行时生成的会话库与上传图片（含用户数据，不入库）
+deploy/api/v4/chat.db

@@ -16,8 +16,9 @@
     const removeImageBtn = document.getElementById('removeImageBtn');
 
     let imageData = null;      // 选中的图片 File
-    let history = [];          // 文字问答历史 [{role, content}]，供 /chat 多轮
+    let history = [];          // 未登录时的前端内存记忆 [{role, content}]
     let busy = false;
+    let currentConvId = '';    // 登录用户的当前会话 ID（服务端记忆）
 
     /* ---------- 工具 ---------- */
     function escapeHtml(s) {
@@ -51,10 +52,111 @@
         history = [];
     }
 
-    function addUserMsg(text) {
+    function userInitial() {
+        const u = (window.MedShell && window.MedShell.getUser && window.MedShell.getUser()) || null;
+        const name = (u && u.username) || '';
+        return name ? name.charAt(0).toUpperCase() : '我';
+    }
+
+    /* ---------- 会话记录（登录用户） ---------- */
+    const convSection = document.getElementById('convSection');
+    const convList = document.getElementById('convList');
+
+    function loggedIn() {
+        return !!(window.MedShell && window.MedShell.getUser && window.MedShell.getUser());
+    }
+
+    function markActiveConv(convId) {
+        convList.querySelectorAll('.conv-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.conv === convId);
+        });
+    }
+
+    async function refreshConvList() {
+        if (!loggedIn()) {
+            convSection.style.display = 'none';
+            convList.innerHTML = '';
+            return;
+        }
+        convSection.style.display = '';
+        let items = [];
+        try {
+            const resp = await fetch('/api/chat/conversations');
+            if (resp.ok) items = (await resp.json()).items || [];
+        } catch (e) { return; }
+        convList.innerHTML = '';
+        if (!items.length) {
+            const tip = document.createElement('div');
+            tip.className = 'conv-empty';
+            tip.textContent = '还没有会话记录';
+            convList.appendChild(tip);
+            return;
+        }
+        items.forEach(it => {
+            const div = document.createElement('div');
+            div.className = 'conv-item';
+            div.dataset.conv = it.id;
+            div.title = it.title + ' · ' + (it.updated_at || '');
+            div.innerHTML = `<span class="conv-title">${escapeHtml(it.title)}</span><span class="conv-del" title="删除会话">×</span>`;
+            div.onclick = (e) => {
+                if (e.target.classList.contains('conv-del')) return;
+                openConversation(it.id);
+            };
+            div.querySelector('.conv-del').onclick = () => deleteConversation(it.id);
+            convList.appendChild(div);
+        });
+        markActiveConv(currentConvId);
+    }
+
+    async function deleteConversation(convId) {
+        if (busy) return;
+        if (!confirm('删除这条会话及其全部消息？')) return;
+        try {
+            const resp = await fetch(`/api/chat/conversations/${convId}`, { method: 'DELETE' });
+            if (resp.ok && convId === currentConvId) {
+                currentConvId = '';
+                showWelcome();
+            }
+        } catch (e) {}
+        refreshConvList();
+    }
+
+    async function openConversation(convId) {
+        if (busy || convId === currentConvId) return;
+        let data = null;
+        try {
+            const resp = await fetch(`/api/chat/conversations/${convId}/messages`);
+            if (!resp.ok) { refreshConvList(); return; }
+            data = await resp.json();
+        } catch (e) { return; }
+        currentConvId = convId;
+        history = [];  // 登录态下服务端记忆接管
+        clearImage();
+        hideWelcome();
+        chatScroll.querySelectorAll('.msg').forEach(m => m.remove());
+        (data.messages || []).forEach(m => {
+            if (m.role === 'user') addUserMsg(m.content, m.image_path ? '/api/chat/media/' + m.image_path : '');
+            else if (m.role === 'assistant') addAssistantText(m.content);
+        });
+        markActiveConv(convId);
+        scrollBottom();
+    }
+
+    // 登录态变化（auth.js 通知）：刷新侧栏会话区；登出则清空本地状态
+    window.MedShell.onAuthChanged = (user) => {
+        currentConvId = '';
+        if (!user) showWelcome();
+        refreshConvList();
+    };
+
+    function addUserMsg(text, imageUrl) {
         const div = document.createElement('div');
         div.className = 'msg user';
-        div.innerHTML = `<div class="bubble">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
+        let inner = '';
+        if (imageUrl) inner += `<img class="chat-img" src="${imageUrl}" alt="上传的报告图片">`;
+        if (text) inner += `<div class="msg-text">${escapeHtml(text).replace(/\n/g, '<br>')}</div>`;
+        if (!inner) inner = '<div class="msg-text">（上传了一张报告图片）</div>';
+        div.innerHTML = `<div class="bubble">${inner}</div><div class="avatar user-av">${escapeHtml(userInitial())}</div>`;
         chatScroll.appendChild(div);
         scrollBottom();
     }
@@ -62,10 +164,17 @@
     function addAssistantMsg() {
         const div = document.createElement('div');
         div.className = 'msg assistant';
-        div.innerHTML = `<div class="bubble"><p class="thinking-hint" style="color:#9fb5b0">思考中…</p></div>`;
+        div.innerHTML = `<div class="avatar ai"><img src="logo-mark.png" alt="MedButler"></div><div class="bubble"><p class="thinking-hint" style="color:#9fb5b0">思考中…</p></div>`;
         chatScroll.appendChild(div);
         scrollBottom();
         return div.querySelector('.bubble');
+    }
+
+    function addAssistantText(text) {
+        const div = document.createElement('div');
+        div.className = 'msg assistant';
+        div.innerHTML = `<div class="avatar ai"><img src="logo-mark.png" alt="MedButler"></div><div class="bubble">${convertMarkdownToHtml(text)}</div>`;
+        chatScroll.appendChild(div);
     }
 
     function setCount(key, inc) {
@@ -107,6 +216,8 @@
         textInput.value = '';
         refreshSendState();
         showWelcome();
+        currentConvId = '';   // 下一条消息自动开新会话（懒创建，避免空会话占位）
+        markActiveConv('');
     };
 
     // 欢迎卡片：聚焦输入框
@@ -118,7 +229,7 @@
     function sendMessage() {
         if (busy) return;
         const text = textInput.value.trim();
-        if (imageData) { sendImage(); }
+        if (imageData) { sendImage(text); }
         else if (text) { sendChat(text); }
     }
 
@@ -138,6 +249,7 @@
                 body: JSON.stringify({
                     message,
                     history: history.slice(-10),
+                    conversation_id: currentConvId,
                 }),
             });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -161,6 +273,13 @@
                         answer += ev.text;
                         bubble.innerHTML = convertMarkdownToHtml(answer);
                         scrollBottom();
+                    } else if (ev.stage === 'reset') {
+                        // 后端检测到复读循环换温度重试：清掉半成品，给出提示而不是让内容突然变报错
+                        answer = '';
+                        bubble.innerHTML = '<p class="thinking-hint" style="color:#9fb5b0">回答出现循环，正在换个思路重试…</p>';
+                    } else if (ev.stage === 'conv' && ev.id) {
+                        currentConvId = ev.id;
+                        markActiveConv(ev.id);
                     } else if (ev.stage === 'error') {
                         bubble.innerHTML = `<span style="color:#dc2626">出错了：${escapeHtml(ev.detail || '未知错误')}</span>`;
                     }
@@ -177,14 +296,15 @@
         }
         busy = false;
         refreshSendState();
+        if (loggedIn()) refreshConvList();
     }
 
     /* ============ 报告解读（/image） ============ */
-    async function sendImage() {
+    async function sendImage(caption) {
         busy = true;
         refreshSendState();
         hideWelcome();
-        addUserMsg('（上传了一张报告图片）');
+        addUserMsg(caption || '', URL.createObjectURL(imageData));
         textInput.value = '';
 
         const bubble = addAssistantMsg();
@@ -195,6 +315,7 @@
         try {
             const formData = new FormData();
             formData.append('files', imageData, imageData.name || 'report.jpg');
+            formData.append('conversation_id', currentConvId);
 
             const resp = await fetch('/image', { method: 'POST', body: formData });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -247,6 +368,12 @@
                             renderSuggestion(bubble, suggestionText);
                             scrollBottom();
                             break;
+                        case 'conv':
+                            if (ev.id) {
+                                currentConvId = ev.id;
+                                markActiveConv(ev.id);
+                            }
+                            break;
                         case 'error':
                             if (!analysisText && !suggestionText) {
                                 bubble.innerHTML = `<span style="color:#dc2626">出错了：${escapeHtml(ev.detail || '未知错误')}</span>`;
@@ -276,6 +403,7 @@
         }
         busy = false;
         refreshSendState();
+        if (loggedIn()) refreshConvList();
     }
 
     function renderSuggestion(bubble, text) {
