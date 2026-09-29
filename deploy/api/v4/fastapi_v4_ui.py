@@ -181,7 +181,7 @@ async def analyze_image(
                 loop_aborted = False
                 try:
                     # 每次调用使用全新连接：llama.cpp 在多模态请求之后的复用连接上会返回 404
-                    async with httpx.AsyncClient(timeout=STREAM_TIMEOUT) as client:
+                    async with httpx.AsyncClient(timeout=STREAM_TIMEOUT, trust_env=False) as client:
                         async with client.stream("POST", f"{LLM_BASE_URL}/v1/chat/completions", json=vl_payload) as resp:
                             resp.raise_for_status()
                             async for rc, cc in _iter_sse_lines(resp):
@@ -297,7 +297,7 @@ async def analyze_image(
                 suggestion_parts, suggestion_acc = [], ""
                 llm_looped = False
                 try:
-                    async with httpx.AsyncClient(timeout=STREAM_TIMEOUT) as client:
+                    async with httpx.AsyncClient(timeout=STREAM_TIMEOUT, trust_env=False) as client:
                         async with client.stream("POST", f"{LLM_BASE_URL}/v1/chat/completions", json=llm_payload) as resp:
                             resp.raise_for_status()
                             async for rc, cc in _iter_sse_lines(resp):
@@ -456,7 +456,7 @@ async def chat(request: Request, body: ChatBody):
             parts, acc = [], ""
             looped = False
             try:
-                async with httpx.AsyncClient(timeout=STREAM_TIMEOUT) as client:
+                async with httpx.AsyncClient(timeout=STREAM_TIMEOUT, trust_env=False) as client:
                     async with client.stream("POST", f"{LLM_BASE_URL}/v1/chat/completions", json=payload) as resp:
                         resp.raise_for_status()
                         async for _, cc in _iter_sse_lines(resp):
