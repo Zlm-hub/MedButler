@@ -106,21 +106,18 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
 
         try:
             if len(files[0]) <= 100:
-                log_event("request_rejected", level="warning", reason="file too small", size=len(files[0]))
+                log_event(f"收到无效请求：文件过小（{len(files[0])} 字节），已拒绝", level="warning")
                 yield emit({"stage": "error", "detail": "No image file provided"})
                 return
 
-            log_event("request_start", original_size=len(files[0]), stream=True)
+            log_event(f"收到分析请求：原图 {len(files[0]) / 1024:.0f} KB，开始全流程处理")
 
             t_resize = Timer()
             resized_image = resize_image(io.BytesIO(files[0]), max_size=cfg.IMAGE_MAX_SIZE)
             base64_image = encode_image_to_base64(resized_image)
             log_event(
-                "image_resized",
-                original_size=len(files[0]),
-                resized_size=resized_image.getbuffer().nbytes,
-                base64_len=len(base64_image),
-                elapsed=t_resize.elapsed(),
+                f"图片预处理完成：{len(files[0]) / 1024:.0f} KB → {resized_image.getbuffer().nbytes / 1024:.0f} KB"
+                f"（base64 {len(base64_image)} 字符），耗时 {t_resize.elapsed():.2f}s"
             )
             yield emit({
                 "stage": "start",
@@ -156,7 +153,10 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                     "repeat_last_n": cfg.VL_REPEAT_LAST_N,
                     "stream": True,
                 }
-                log_event("vl_attempt_start", attempt=attempt, temperature=vl_payload["temperature"], max_tokens=cfg.VL_MAX_TOKENS, stream=True)
+                log_event(
+                    f"第 {attempt + 1} 次读图开始：温度 {vl_payload['temperature']:.2f}，"
+                    f"max_tokens={cfg.VL_MAX_TOKENS}（流式，开思考）"
+                )
                 t_vl = Timer()
                 reasoning_parts, content_parts = [], []
                 try:
@@ -173,7 +173,10 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                                     content_parts.append(cc)
                                     yield emit({"stage": "analysis_delta", "attempt": attempt, "text": cc})
                 except (httpx.RequestError, httpx.HTTPStatusError) as e:
-                    log_event("model_call_fail", level="error", endpoint="8080(stream-vl)", attempt=attempt, elapsed=t_vl.elapsed(), error=repr(e))
+                    log_event(
+                        f"读图调用失败（VL 服务，第 {attempt + 1} 次，耗时 {t_vl.elapsed():.2f}s）：{e!r}",
+                        level="error",
+                    )
                     if attempt < cfg.VL_MAX_ATTEMPTS - 1:
                         yield emit({"stage": "vl_retry", "attempt": attempt + 1, "reason": "network"})
                         continue
@@ -183,25 +186,24 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                 _rc = "".join(reasoning_parts).strip()
                 _c = "".join(content_parts).strip()
                 accepted = _clean_content_ok(_c)
+                verdict = "采纳" if accepted else "结论不干净，不采纳"
                 log_event(
-                    "vl_attempt_done",
-                    attempt=attempt,
-                    elapsed=t_vl.elapsed(),
-                    content_len=len(_c),
-                    reasoning_len=len(_rc),
-                    accepted=accepted,
+                    f"第 {attempt + 1} 次读图结束：耗时 {t_vl.elapsed():.2f}s，"
+                    f"思考 {len(_rc)} 字 / 结论 {len(_c)} 字 → {verdict}"
                 )
                 if accepted:
                     raw_summary = _c
                     break
                 if attempt < cfg.VL_MAX_ATTEMPTS - 1:
                     # 本次未采纳：前端清空半成品结论后重试
+                    log_event(f"准备第 {attempt + 2} 次重试（换温度 {cfg.VL_RETRY_TEMPERATURE:.2f}）", level="warning")
                     yield emit({"stage": "vl_retry", "attempt": attempt + 1, "reason": "content not clean"})
                 else:
+                    log_event(f"已用完 {cfg.VL_MAX_ATTEMPTS} 次尝试，用最后一次输出兜底", level="warning")
                     raw_summary = _rc or _c  # 最后一次兜底：用思考内容也行
 
             summary = clean_analysis(raw_summary)
-            log_event("analysis_cleaned", raw_len=len(raw_summary), clean_len=len(summary))
+            log_event(f"结论提纯完成：原文 {len(raw_summary)} 字 → 提纯后 {len(summary)} 字")
             # 定格分析区（前端用此最终版覆盖增量）
             yield emit({"stage": "analysis", "data": summary})
 
@@ -236,7 +238,7 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                 "repeat_penalty": cfg.LLM_REPEAT_PENALTY,
                 "stream": True,
             }
-            log_event("llm_call_start", enable_thinking=False, max_tokens=cfg.LLM_MAX_TOKENS, stream=True)
+            log_event(f"健康建议生成开始：关思考，max_tokens={cfg.LLM_MAX_TOKENS}（流式）")
             t_llm = Timer()
             suggestion_parts = []
             try:
@@ -248,19 +250,25 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                                 suggestion_parts.append(cc)
                                 yield emit({"stage": "recommendations_delta", "text": cc})
             except (httpx.RequestError, httpx.HTTPStatusError) as e:
-                log_event("model_call_fail", level="error", endpoint="8080(stream-llm)", elapsed=t_llm.elapsed(), error=repr(e))
+                log_event(
+                    f"建议生成调用失败（LLM 服务，耗时 {t_llm.elapsed():.2f}s）：{e!r}",
+                    level="error",
+                )
                 yield emit({"stage": "error", "detail": f"Failed to call model service: {e}"})
                 return
 
             suggestion = "".join(suggestion_parts).strip().replace("<|eot_id|>", "")
-            log_event("llm_call_done", elapsed=t_llm.elapsed(), suggestion_len=len(suggestion))
+            log_event(f"健康建议生成完成：耗时 {t_llm.elapsed():.2f}s，长度 {len(suggestion)} 字")
 
             yield emit({"stage": "recommendations", "data": suggestion})
-            log_event("request_done", total_elapsed=t_total.elapsed(), analysis_len=len(summary), suggestion_len=len(suggestion))
+            log_event(
+                f"请求处理完成：总耗时 {t_total.elapsed():.2f}s"
+                f"（结论 {len(summary)} 字 / 建议 {len(suggestion)} 字）"
+            )
             yield emit({"stage": "done", "total_elapsed": round(t_total.elapsed(), 2)})
 
         except Exception as e:  # 任何未预期异常也以事件形式告知前端
-            log_event("request_error", level="error", error=repr(e), total_elapsed=t_total.elapsed())
+            log_event(f"请求处理异常：{e!r}（总耗时 {t_total.elapsed():.2f}s）", level="error")
             try:
                 yield emit({"stage": "error", "detail": str(e)})
             except Exception:

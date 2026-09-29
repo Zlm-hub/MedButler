@@ -3,9 +3,9 @@ MedButler v4 全链路日志模块（自包含，不依赖项目其他文件）
 
 - 写文件：deploy/api/v4/logs/medbutler.log（按天滚动，保留 14 天）
 - 同时输出到控制台（uvicorn 终端可见）
-- 用法：
+- 用法（消息为中文工作流描述，可附带 key=value 字段）：
     from logger import log_event, Timer, get_recent_logs
-    log_event("vl_attempt_done", attempt=1, elapsed=3.21, content_len=120)
+    log_event("第 1 次读图结束：耗时 3.21s，思考 1492 字 / 结论 8 字 → 采纳")
     t = Timer(); ... ; t.elapsed()  -> 3.21（秒，两位小数）
     get_recent_logs(200)            -> 最近 200 行日志文本
 """
