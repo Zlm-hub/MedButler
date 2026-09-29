@@ -94,15 +94,22 @@ def _vl_temperature(attempt):
         return 0.0
     return min(1.0, cfg.VL_RETRY_TEMPERATURE + 0.3 * (attempt - 1))
 
-def _thinking_looped(text):
-    """思考复读检测：最近 400 字内同一 >=16 字片段出现 >=3 次判定为循环"""
+def _repetition_looped(text):
+    """复读检测（思考段/建议段通用），命中任一规则判定为循环：
+    规则1（句级循环）：最近 400 字内同一 >=16 字片段出现 >=3 次
+    规则2（词汤/变体循环）：最近 400 字的 4-gram 唯一率 < 0.55（正常文本通常 >0.85）"""
     if len(text) < 120:
         return False
     tail = text[-400:]
+    # 规则1：句级精确循环
     frag_len = 16
     for i in range(0, len(tail) - frag_len + 1, 8):
         if tail.count(tail[i:i + frag_len]) >= 3:
             return True
+    # 规则2：4-gram 重复率（每次变几个字的「词汤」循环，规则1 抓不住）
+    grams = [tail[i:i + 4] for i in range(0, len(tail) - 3)]
+    if len(grams) >= 100 and len(set(grams)) / len(grams) < 0.55:
+        return True
     return False
 
 async def _iter_sse_lines(resp):
@@ -204,7 +211,7 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                                 if rc:
                                     reasoning_parts.append(rc)
                                     reasoning_acc += rc
-                                    if _thinking_looped(reasoning_acc):
+                                    if _repetition_looped(reasoning_acc):
                                         # 复读循环：立即断开，不再等它烧完 4096 tokens
                                         loop_aborted = True
                                         log_event(
@@ -267,6 +274,14 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
 
             summary = clean_analysis(raw_summary)
             log_event(f"结论提纯完成：原文 {len(raw_summary)} 字 → 提纯后 {len(summary)} 字")
+            if not summary.strip():
+                # 空结论不该继续：拿空结论生成建议只会产出垃圾
+                log_event("读图失败：所有尝试均未产出有效结论，不生成建议", level="error")
+                yield emit({
+                    "stage": "error",
+                    "detail": "未能识别这张报告的内容（模型连续多次无法稳定读图）。请重试，或上传更清晰、光线更好的照片。",
+                })
+                return
             # 定格分析区（前端用此最终版覆盖增量）
             yield emit({"stage": "analysis", "data": summary})
 
@@ -295,40 +310,70 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                 "不要输出上述任何格式。\n\n"
                 f"报告分析结论：\n{summary}"
             )
-            llm_payload = {
-                "model": cfg.VL_MODEL_NAME,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": llm_user_prompt
-                    }
-                ],
-                "chat_template_kwargs": {"enable_thinking": False},
-                "max_tokens": cfg.LLM_MAX_TOKENS,
-                "temperature": cfg.LLM_TEMPERATURE,
-                "repeat_penalty": cfg.LLM_REPEAT_PENALTY,
-                "stream": True,
-            }
-            log_event(f"健康建议生成开始：关思考，max_tokens={cfg.LLM_MAX_TOKENS}（流式）")
-            t_llm = Timer()
-            suggestion_parts = []
-            try:
-                async with httpx.AsyncClient(timeout=STREAM_TIMEOUT) as client:
-                    async with client.stream("POST", f"{LLM_BASE_URL}/v1/chat/completions", json=llm_payload) as resp:
-                        resp.raise_for_status()
-                        async for rc, cc in _iter_sse_lines(resp):
-                            if cc:
-                                suggestion_parts.append(cc)
-                                yield emit({"stage": "recommendations_delta", "text": cc})
-            except (httpx.RequestError, httpx.HTTPStatusError) as e:
+            suggestion = ""
+            for llm_attempt in range(cfg.LLM_MAX_ATTEMPTS):
+                llm_payload = {
+                    "model": cfg.VL_MODEL_NAME,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": llm_user_prompt
+                        }
+                    ],
+                    "chat_template_kwargs": {"enable_thinking": False},
+                    "max_tokens": cfg.LLM_MAX_TOKENS,
+                    "temperature": cfg.LLM_TEMPERATURE + 0.3 * llm_attempt,
+                    "repeat_penalty": cfg.LLM_REPEAT_PENALTY,
+                    "repeat_last_n": cfg.LLM_REPEAT_LAST_N,
+                    "frequency_penalty": cfg.LLM_FREQUENCY_PENALTY,
+                    "stream": True,
+                }
                 log_event(
-                    f"建议生成调用失败（LLM 服务，耗时 {t_llm.elapsed():.2f}s）：{e!r}",
-                    level="error",
+                    f"健康建议生成开始（第 {llm_attempt + 1} 次）：关思考，"
+                    f"温度 {llm_payload['temperature']:.2f}，max_tokens={cfg.LLM_MAX_TOKENS}（流式）"
                 )
-                yield emit({"stage": "error", "detail": f"Failed to call model service: {e}"})
-                return
+                t_llm = Timer()
+                suggestion_parts, suggestion_acc = [], ""
+                llm_looped = False
+                try:
+                    async with httpx.AsyncClient(timeout=STREAM_TIMEOUT) as client:
+                        async with client.stream("POST", f"{LLM_BASE_URL}/v1/chat/completions", json=llm_payload) as resp:
+                            resp.raise_for_status()
+                            async for rc, cc in _iter_sse_lines(resp):
+                                if cc:
+                                    suggestion_parts.append(cc)
+                                    suggestion_acc += cc
+                                    if _repetition_looped(suggestion_acc):
+                                        llm_looped = True
+                                        log_event(
+                                            f"健康建议生成陷入复读循环，提前中断"
+                                            f"（第 {llm_attempt + 1} 次，耗时 {t_llm.elapsed():.2f}s，已产出 {len(suggestion_acc)} 字）",
+                                            level="warning",
+                                        )
+                                        break
+                                    yield emit({"stage": "recommendations_delta", "text": cc})
+                except (httpx.RequestError, httpx.HTTPStatusError) as e:
+                    log_event(
+                        f"建议生成调用失败（LLM 服务，耗时 {t_llm.elapsed():.2f}s）：{e!r}",
+                        level="error",
+                    )
+                    yield emit({"stage": "error", "detail": f"Failed to call model service: {e}"})
+                    return
 
-            suggestion = "".join(suggestion_parts).strip().replace("<|eot_id|>", "")
+                suggestion = "".join(suggestion_parts).strip().replace("<|eot_id|>", "")
+                if not llm_looped:
+                    break
+                if llm_attempt < cfg.LLM_MAX_ATTEMPTS - 1:
+                    log_event(
+                        f"准备第 {llm_attempt + 2} 次重试（换温度 {cfg.LLM_TEMPERATURE + 0.3 * (llm_attempt + 1):.2f}）",
+                        level="warning",
+                    )
+                    yield emit({"stage": "recommendations", "data": ""})  # 清空前端半成品建议
+                else:
+                    log_event("健康建议多次重试仍复读，放弃本次生成", level="error")
+                    yield emit({"stage": "error", "detail": "健康建议生成异常，请重试"})
+                    return
+
             log_event(f"健康建议生成完成：耗时 {t_llm.elapsed():.2f}s，长度 {len(suggestion)} 字")
 
             yield emit({"stage": "recommendations", "data": suggestion})

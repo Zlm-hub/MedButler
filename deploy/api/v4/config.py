@@ -65,6 +65,10 @@ class Cfg:
     LLM_MAX_TOKENS = _get("LLM_MAX_TOKENS", 2048, int)
     LLM_TEMPERATURE = _get("LLM_TEMPERATURE", 0.6, float)
     LLM_REPEAT_PENALTY = _get("LLM_REPEAT_PENALTY", 1.2, float)
+    # 建议段防复读（与 VL 同套路）
+    LLM_REPEAT_LAST_N = _get("LLM_REPEAT_LAST_N", 256, int)
+    LLM_FREQUENCY_PENALTY = _get("LLM_FREQUENCY_PENALTY", 0.3, float)
+    LLM_MAX_ATTEMPTS = _get("LLM_MAX_ATTEMPTS", 2, int)
 
     # 流式超时（秒）：read 为相邻 chunk 最大间隔，非总时长
     STREAM_CONNECT_TIMEOUT = _get("STREAM_CONNECT_TIMEOUT", 10.0, float)
