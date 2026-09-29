@@ -2,41 +2,125 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>医疗报告助手</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MedButler · 私人健康管家</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <header class="header">
-            <h1>🩺 医疗报告助手</h1>
-            <div class="auth-area" id="authArea"></div>
-        </header>
+    <!-- ============ 主应用视图 ============ -->
+    <div id="appView" class="app-layout">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-icon">🩺</div>
+                <div class="logo-text">
+                    <b>MedButler</b>
+                    <span>私人健康管家</span>
+                </div>
+            </div>
 
-        <div class="chat-container" id="chatContainer">
-            <div class="welcome-message">
-                <p>👋 欢迎使用医疗报告助手</p>
-                <p class="welcome-sub">上传医疗检测报告图片 → AI 读取异常指标 → 生成健康建议，全程流式实时展示。</p>
-            </div>
-        </div>
-        
-        <div class="input-container">
-            <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
-                <img id="imagePreview" src="" alt="Image preview">
-                <button class="remove-image-btn" id="removeImageBtn">×</button>
-            </div>
-            
-            <div class="input-area">
-                <label for="imageInput" class="image-input-label" id="imageInputLabel">
-                    <span class="plus-icon">+</span>
-                    <span>选择图片</span>
-                </label>
-                <input type="file" id="imageInput" accept="image/*" style="display: none;">
-                <button id="sendButton" class="send-button" disabled>发送</button>
+            <button class="new-chat-btn" id="newChatBtn">＋ 新对话</button>
+
+            <nav class="sidebar-nav">
+                <a class="nav-item active" data-nav="chat"><span>💬</span> 健康问答</a>
+                <a class="nav-item" data-nav="report"><span>📋</span> 报告解读</a>
+                <a class="nav-item nav-disabled"><span>🕒</span> 分析历史 <em class="soon-tag">规划中</em></a>
+            </nav>
+
+            <div class="sidebar-spacer"></div>
+            <div class="sidebar-user" id="sidebarUser"></div>
+            <a class="nav-item" id="profileEntry"><span>👤</span> 个人中心</a>
+        </aside>
+
+        <div class="main-area">
+            <header class="topbar">
+                <div class="topbar-tabs">
+                    <button class="tab active" data-tab="chat">💬 问答</button>
+                    <button class="tab" data-tab="report">📋 报告</button>
+                </div>
+                <div class="topbar-status">
+                    <span class="status-dot"></span>已连接
+                    <span class="model-tag">med-vl · llama.cpp</span>
+                </div>
+            </header>
+
+            <main class="chat-scroll" id="chatScroll">
+                <div class="welcome" id="welcomeBlock">
+                    <div class="welcome-icon">🩺</div>
+                    <h1>你好，我是 MedButler</h1>
+                    <p class="welcome-sub">上传医疗报告图片，或直接问我健康问题</p>
+                    <div class="feature-grid">
+                        <div class="feature-card" data-feature="report">
+                            <b>📋 报告解读</b>
+                            <span>上传报告图 → 转录 → 通俗解读</span>
+                        </div>
+                        <div class="feature-card" data-feature="chat">
+                            <b>💬 健康问答</b>
+                            <span>头疼感冒？直接问，我来答</span>
+                        </div>
+                        <div class="feature-card soon">
+                            <b>🕒 分析历史</b>
+                            <span>解读记录沉淀与回顾（规划中）</span>
+                        </div>
+                        <div class="feature-card soon">
+                            <b>📚 健康百科</b>
+                            <span>常见指标与疾病科普（规划中）</span>
+                        </div>
+                    </div>
+                    <div class="quick-hints">试试问我：头疼怎么办 · 感冒了要注意什么 · 孕期能吃感冒药吗</div>
+                </div>
+                <!-- 消息气泡动态插入 -->
+            </main>
+
+            <div class="composer">
+                <div class="preview-row" id="previewRow" style="display:none">
+                    <img id="previewImg" alt="图片预览">
+                    <button id="removeImageBtn" title="移除图片">×</button>
+                </div>
+                <div class="composer-row">
+                    <button class="attach-btn" id="attachBtn" title="选择报告图片">📎</button>
+                    <input type="file" id="imageInput" accept="image/*" style="display:none">
+                    <input type="text" id="textInput" placeholder="向 MedButler 提问，或点 📎 上传报告图片" autocomplete="off">
+                    <button class="send-btn" id="sendBtn" disabled>发送</button>
+                </div>
+                <div class="composer-hint">Enter 发送 · 报告图片自动转录并解读 · 结果仅供参考，以医生意见为准</div>
             </div>
         </div>
     </div>
-    
+
+    <!-- ============ 登录 / 注册视图 ============ -->
+    <div id="authView" class="auth-page hidden">
+        <div class="auth-card">
+            <div class="auth-logo">🩺</div>
+            <h1>MedButler</h1>
+            <p class="auth-sub">登录后体验完整的健康管家服务</p>
+            <div class="auth-tabs">
+                <button id="tabLogin" class="active">登录</button>
+                <button id="tabRegister">注册</button>
+            </div>
+            <input type="text" id="authUsername" placeholder="用户名（3-32 位）" autocomplete="username">
+            <input type="password" id="authPassword" placeholder="密码（至少 6 位）" autocomplete="current-password">
+            <div class="auth-error" id="authError"></div>
+            <button id="authSubmit" class="auth-submit">登 录</button>
+            <a class="auth-back" id="authBack">← 返回首页</a>
+        </div>
+    </div>
+
+    <!-- ============ 个人中心视图 ============ -->
+    <div id="profileView" class="profile-page hidden">
+        <div class="profile-card">
+            <div class="profile-avatar">🩺</div>
+            <h2 id="profileUsername">-</h2>
+            <span class="role-badge" id="profileRole">-</span>
+            <div class="profile-meta" id="profileMeta">注册时间：-</div>
+            <div class="profile-stats">
+                <div class="stat"><b id="statReports">0</b><span>报告解读</span></div>
+                <div class="stat"><b id="statChats">0</b><span>健康问答</span></div>
+            </div>
+            <button id="profileLogout" class="profile-logout">退出登录</button>
+            <a id="profileBack" class="auth-back">← 返回首页</a>
+        </div>
+    </div>
+
     <script src="auth.js"></script>
     <script src="script.js"></script>
 </body>

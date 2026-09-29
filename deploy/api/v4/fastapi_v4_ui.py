@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from typing import Annotated
 from PIL import Image
 import base64
@@ -343,6 +344,97 @@ async def analyze_image(request: Request, files: Annotated[list[bytes], File()])
 @app.get("/logs", response_class=PlainTextResponse)
 def recent_logs(lines: int = 200):
     return get_recent_logs(lines)
+
+# ---------- 健康问答（文字对话，/chat）：同一模型第二角色，B 方案同源 ----------
+class ChatBody(BaseModel):
+    message: str
+    history: list = []
+
+@app.post("/chat")
+@app.post("/chat/")
+async def chat(request: Request, body: ChatBody):
+    async def event_stream():
+        def emit(obj):
+            return json.dumps(obj, ensure_ascii=False) + "\n"
+
+        # 可选强制登录（与 /image 共用同一开关）
+        if cfg.REQUIRE_LOGIN and not get_current_user(request):
+            yield emit({"stage": "error", "detail": "请先登录后再使用健康问答功能"})
+            return
+
+        message = body.message.strip()
+        if not message:
+            yield emit({"stage": "error", "detail": "消息不能为空"})
+            return
+
+        log_event(f"收到问答请求：{len(message)} 字（携带 {len(body.history)} 条历史）")
+        t_chat = Timer()
+
+        # 4B 模型长文生成是塌缩重灾区：系统提示里限制篇幅 + 结构化
+        messages = (
+            [{"role": "system", "content":
+                "你是 MedButler 私人健康管家，用通俗中文回答健康问题，"
+                "给出实用建议，篇幅控制在 300 字以内，重要提醒放在最后（以医生意见为准）。"}]
+            + [m for m in body.history[-10:] if m.get("role") in ("user", "assistant") and m.get("content")]
+            + [{"role": "user", "content": message}]
+        )
+        payload = {
+            "model": cfg.VL_MODEL_NAME,
+            "messages": messages,
+            "max_tokens": cfg.LLM_MAX_TOKENS,
+            "temperature": cfg.LLM_TEMPERATURE,
+            "repeat_penalty": cfg.LLM_REPEAT_PENALTY,
+            "repeat_last_n": cfg.LLM_REPEAT_LAST_N,
+            "frequency_penalty": cfg.LLM_FREQUENCY_PENALTY,
+            "chat_template_kwargs": {"enable_thinking": False},
+            "stream": True,
+        }
+
+        answer = ""
+        for attempt in range(cfg.LLM_MAX_ATTEMPTS):
+            t_llm = Timer()
+            parts, acc = [], ""
+            looped = False
+            try:
+                async with httpx.AsyncClient(timeout=STREAM_TIMEOUT) as client:
+                    async with client.stream("POST", f"{LLM_BASE_URL}/v1/chat/completions", json=payload) as resp:
+                        resp.raise_for_status()
+                        async for _, cc in _iter_sse_lines(resp):
+                            if cc:
+                                parts.append(cc)
+                                acc += cc
+                                if _repetition_looped(acc):
+                                    looped = True
+                                    log_event(
+                                        f"问答陷入复读循环，提前中断（第 {attempt + 1} 次，耗时 {t_llm.elapsed():.2f}s）",
+                                        level="warning",
+                                    )
+                                    break
+                                yield emit({"stage": "delta", "text": cc})
+            except (httpx.RequestError, httpx.HTTPStatusError) as e:
+                log_event(f"问答调用失败（LLM 服务）：{e!r}", level="error")
+                yield emit({"stage": "error", "detail": "模型服务不可用，请稍后重试"})
+                return
+
+            answer = "".join(parts).strip().replace("<|eot_id|>", "")
+            if not looped:
+                log_event(f"问答完成：耗时 {t_chat.elapsed():.2f}s，回答 {len(answer)} 字")
+                break
+            if attempt < cfg.LLM_MAX_ATTEMPTS - 1:
+                payload["temperature"] = min(1.0, cfg.LLM_TEMPERATURE + 0.3)
+                yield emit({"stage": "reset"})
+            else:
+                log_event("问答多次重试仍复读，放弃本次生成", level="error")
+                yield emit({"stage": "error", "detail": "回答生成异常，请换个问法重试"})
+                return
+
+        yield emit({"stage": "done"})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 # 挂载静态文件目录
 app.mount("/", StaticFiles(directory="ui", html=True), name="ui")

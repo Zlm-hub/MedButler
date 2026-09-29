@@ -1,114 +1,149 @@
-/* MedButler 认证模块：登录 / 注册 / 退出（自包含，不碰报告解读逻辑） */
+/* ============================================================
+   MedButler 视图壳：主界面 / 登录注册 / 个人中心 + 认证逻辑
+   （对话与报告逻辑在 script.js，通过 window.MedShell 通信）
+   ============================================================ */
 (function () {
     'use strict';
 
-    const authArea = document.getElementById('authArea');
+    const views = {
+        app: document.getElementById('appView'),
+        auth: document.getElementById('authView'),
+        profile: document.getElementById('profileView'),
+    };
+    let currentUser = null;
+    let authMode = 'login';
 
-    function renderAuth(user) {
-        authArea.innerHTML = '';
-        if (user) {
-            const info = document.createElement('span');
-            info.className = 'auth-user';
-            info.textContent = user.username + (user.role === 'admin' ? '（管理员）' : '');
-            const btn = document.createElement('button');
-            btn.className = 'auth-btn';
-            btn.textContent = '退出';
-            btn.onclick = async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                renderAuth(null);
-            };
-            authArea.appendChild(info);
-            authArea.appendChild(btn);
+    /* ---------- 视图切换 ---------- */
+    function showView(name) {
+        Object.entries(views).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
+        if (name === 'profile') renderProfile();
+    }
+    window.MedShell = { showView };
+
+    /* ---------- 侧栏用户区 ---------- */
+    function renderSidebarUser() {
+        const box = document.getElementById('sidebarUser');
+        if (currentUser) {
+            box.innerHTML = `
+                <div class="user-line">
+                    <div class="user-avatar">🙂</div>
+                    <div class="user-info">
+                        <span class="user-name">${escapeHtml(currentUser.username)}</span>
+                        <span class="user-role">${currentUser.role === 'admin' ? '管理员' : '普通用户'}</span>
+                    </div>
+                </div>`;
         } else {
-            const loginBtn = document.createElement('button');
-            loginBtn.className = 'auth-btn';
-            loginBtn.textContent = '登录';
-            loginBtn.onclick = () => openModal('login');
-            const regBtn = document.createElement('button');
-            regBtn.className = 'auth-btn auth-btn-primary';
-            regBtn.textContent = '注册';
-            regBtn.onclick = () => openModal('register');
-            authArea.appendChild(loginBtn);
-            authArea.appendChild(regBtn);
+            box.innerHTML = `
+                <div class="auth-links">
+                    <a id="sideLogin">登录</a>
+                    <a id="sideRegister">注册</a>
+                </div>`;
+            box.querySelector('#sideLogin').onclick = () => openAuth('login');
+            box.querySelector('#sideRegister').onclick = () => openAuth('register');
         }
     }
 
-    function openModal(mode) {
-        const old = document.getElementById('authModal');
-        if (old) old.remove();
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+    }
 
-        const overlay = document.createElement('div');
-        overlay.id = 'authModal';
-        overlay.className = 'auth-overlay';
-        overlay.innerHTML = `
-            <div class="auth-modal">
-                <button class="auth-close" id="authClose">×</button>
-                <div class="auth-tabs">
-                    <button data-mode="login">登录</button>
-                    <button data-mode="register">注册</button>
-                </div>
-                <div class="auth-form">
-                    <input type="text" id="authUsername" placeholder="用户名（3-32 位）" autocomplete="username">
-                    <input type="password" id="authPassword" placeholder="密码（至少 6 位）" autocomplete="current-password">
-                    <div class="auth-error" id="authError"></div>
-                    <button class="auth-submit" id="authSubmit">登 录</button>
-                </div>
-            </div>`;
+    /* ---------- 登录 / 注册页 ---------- */
+    function openAuth(mode) {
+        authMode = mode;
+        document.getElementById('authError').textContent = '';
+        document.getElementById('authUsername').value = '';
+        document.getElementById('authPassword').value = '';
+        setAuthMode(mode);
+        showView('auth');
+        document.getElementById('authUsername').focus();
+    }
 
-        const submit = overlay.querySelector('#authSubmit');
-        const errEl = overlay.querySelector('#authError');
-        let mode_ = mode;
+    function setAuthMode(mode) {
+        authMode = mode;
+        document.getElementById('tabLogin').classList.toggle('active', mode === 'login');
+        document.getElementById('tabRegister').classList.toggle('active', mode === 'register');
+        document.getElementById('authSubmit').textContent = mode === 'login' ? '登 录' : '注 册';
+    }
 
-        function setMode(m) {
-            mode_ = m;
-            overlay.querySelectorAll('.auth-tabs button').forEach(b =>
-                b.classList.toggle('active', b.dataset.mode === m)
-            );
-            submit.textContent = m === 'login' ? '登 录' : '注 册';
-        }
-        setMode(mode);
-
-        overlay.querySelectorAll('.auth-tabs button').forEach(b => {
-            b.onclick = () => { errEl.textContent = ''; setMode(b.dataset.mode); };
-        });
-        overlay.querySelector('#authClose').onclick = () => overlay.remove();
-        overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
-
-        async function doSubmit() {
-            const username = overlay.querySelector('#authUsername').value.trim();
-            const password = overlay.querySelector('#authPassword').value;
-            if (!username || !password) { errEl.textContent = '请填写用户名和密码'; return; }
-            submit.disabled = true;
-            errEl.textContent = '';
-            try {
-                const resp = await fetch('/api/auth/' + mode_, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password }),
-                });
-                const data = await resp.json().catch(() => ({}));
-                if (!resp.ok) {
-                    errEl.textContent = data.detail || '操作失败，请重试';
-                } else {
-                    overlay.remove();
-                    renderAuth({ username: data.username, role: data.role });
-                }
-            } catch (e) {
-                errEl.textContent = '网络异常，请重试';
+    async function doAuthSubmit() {
+        const username = document.getElementById('authUsername').value.trim();
+        const password = document.getElementById('authPassword').value;
+        const errEl = document.getElementById('authError');
+        const btn = document.getElementById('authSubmit');
+        if (!username || !password) { errEl.textContent = '请填写用户名和密码'; return; }
+        btn.disabled = true;
+        errEl.textContent = '';
+        try {
+            const resp = await fetch('/api/auth/' + authMode, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+                errEl.textContent = data.detail || '操作失败，请重试';
+            } else {
+                currentUser = { username: data.username, role: data.role };
+                renderSidebarUser();
+                showView('app');
             }
-            submit.disabled = false;
+        } catch (e) {
+            errEl.textContent = '网络异常，请重试';
         }
-        submit.onclick = doSubmit;
-        overlay.querySelector('#authPassword').addEventListener('keydown', e => {
-            if (e.key === 'Enter') doSubmit();
-        });
-
-        document.body.appendChild(overlay);
+        btn.disabled = false;
     }
 
-    // 初始化：查询当前登录状态
+    /* ---------- 个人中心 ---------- */
+    async function renderProfile() {
+        const box = document.getElementById('sidebarUser');
+        box.innerHTML = '';  // 占位，保持布局稳定
+        let user = currentUser;
+        if (!user) {
+            const resp = await fetch('/api/auth/me').catch(() => null);
+            if (resp && resp.ok) {
+                user = currentUser = await resp.json();
+            }
+        }
+        if (!user) { showView('auth'); return; }
+
+        document.getElementById('profileUsername').textContent = user.username;
+        document.getElementById('profileRole').textContent = user.role === 'admin' ? '管理员' : '普通用户';
+        document.getElementById('profileMeta').textContent =
+            '注册时间：' + (user.created_at || '未知');
+        document.getElementById('statReports').textContent = localStorage.getItem('medbutler_stat_reports') || '0';
+        document.getElementById('statChats').textContent = localStorage.getItem('medbutler_stat_chats') || '0';
+        renderSidebarUser();
+    }
+
+    async function logout() {
+        await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        currentUser = null;
+        renderSidebarUser();
+        openAuth('login');
+    }
+
+    /* ---------- 事件绑定 ---------- */
+    document.getElementById('tabLogin').onclick = () => setAuthMode('login');
+    document.getElementById('tabRegister').onclick = () => setAuthMode('register');
+    document.getElementById('authSubmit').onclick = doAuthSubmit;
+    document.getElementById('authPassword').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doAuthSubmit();
+    });
+    document.getElementById('authBack').onclick = () => showView('app');
+    document.getElementById('profileBack').onclick = () => showView('app');
+    document.getElementById('profileLogout').onclick = logout;
+    document.getElementById('profileEntry').onclick = () => showView('profile');
+
+    /* ---------- 初始化 ---------- */
     fetch('/api/auth/me')
         .then(r => (r.ok ? r.json() : null))
-        .then(renderAuth)
-        .catch(() => renderAuth(null));
+        .then(user => {
+            currentUser = user;
+            renderSidebarUser();
+            // 深链：#/auth 直接打开登录页（未登录时）
+            if (location.hash === '#auth' && !user) openAuth('login');
+        })
+        .catch(() => renderSidebarUser());
 })();

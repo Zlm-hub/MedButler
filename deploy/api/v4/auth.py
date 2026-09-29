@@ -175,4 +175,7 @@ def me(request: Request):
     user = get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="未登录")
-    return user
+    conn = _db()
+    row = conn.execute("SELECT created_at FROM users WHERE username=?", (user["username"],)).fetchone()
+    conn.close()
+    return {**user, "created_at": row[0] if row else None}
