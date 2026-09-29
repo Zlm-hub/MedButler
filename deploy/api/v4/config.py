@@ -48,6 +48,7 @@ class Cfg:
     V4_PORT = _get("V4_PORT", 8000, int)
 
     # 图像预处理
+    # 上传图最长边缩放上限（像素）：化验单 1280 够用；病理等小字报告建议 1600-2048
     IMAGE_MAX_SIZE = _get("IMAGE_MAX_SIZE", 1280, int)
 
     # VL 生成（多模态，开思考）
@@ -58,8 +59,9 @@ class Cfg:
     # 思考防复读：贪心解码(temp 0.0)下思考易陷入循环，加重复惩罚打断
     VL_REPEAT_PENALTY = _get("VL_REPEAT_PENALTY", 1.1, float)
     VL_REPEAT_LAST_N = _get("VL_REPEAT_LAST_N", 256, int)
-    # 频率惩罚：按 token 累计出现次数惩罚，专治句子级变体循环（0=关闭）
-    VL_FREQUENCY_PENALTY = _get("VL_FREQUENCY_PENALTY", 0.3, float)
+    # 频率惩罚：按 token 累计出现次数惩罚，专治句子级变体循环
+    # 注意：读图段别超过 0.1，太高会搅乱输出分布（化验单格式词天然高频重复）
+    VL_FREQUENCY_PENALTY = _get("VL_FREQUENCY_PENALTY", 0.1, float)
 
     # LLM 生成（文本，关思考）
     LLM_MAX_TOKENS = _get("LLM_MAX_TOKENS", 2048, int)
