@@ -29,12 +29,12 @@
 
     function convertMarkdownToHtml(md) {
         let html = escapeHtml(md);
-        html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>')
-                   .replace(/^## (.*$)/gm, '<h3>$1</h3>')
-                   .replace(/^# (.*$)/gm, '<h3>$1</h3>');
+        html = html.replace(/^###\s*(.*$)/gm, '<h3>$1</h3>')
+                   .replace(/^##\s*(.*$)/gm, '<h3>$1</h3>')
+                   .replace(/^#\s*(.*$)/gm, '<h3>$1</h3>');
         html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        // 列表项
-        html = html.replace(/^- (.*)$/gm, '<li>$1</li>');
+        // 列表项（容错：模型偶尔漏掉 - 后的空格）
+        html = html.replace(/^\s*-\s*(.*)$/gm, '<li>$1</li>');
         html = html.replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g, '<ul>$1</ul>');
         html = html.replace(/(<\/ul>)\s*<ul>/g, '$1');
         // 换行 -> <br>

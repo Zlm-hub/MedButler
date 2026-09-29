@@ -252,23 +252,16 @@ async def analyze_image(
             # 实测结论：4B 模型长文生成是塌缩重灾区，解读任务必须限制篇幅（200 字内），
             # 让模型"先说诊断→再说好消息→再说风险→提醒遵医嘱"的短输出又快又准
             llm_user_prompt = (
-                "你是专业的健康顾问。下面是一张医学报告的原文转录，请判断报告类型并按要求输出，"
-                "不要输出任何思考过程：\n\n"
-                "一、若这是病理/影像/诊断类报告（含诊断意见、影像所见、检查结论等）："
-                "用不超过200字向患者通俗解读——先说最重要的诊断，再说好消息（哪些结果是有利的），"
-                "再说需要警惕的风险，最后一句提醒遵医嘱。\n\n"
-                "二、若这是化验单且存在异常指标（偏高/偏低），严格按此 Markdown 格式输出：\n"
-                "### 饮食建议\n"
-                "- 要点一\n"
-                "- 要点二\n\n"
-                "### 运动建议\n"
-                "- 要点一\n"
-                "- 要点二\n\n"
-                "### 生活方式\n"
-                "- 要点一\n"
-                "- 要点二\n\n"
-                "三、若这是化验单且所有指标均在正常范围，只输出一句话说明各项指标正常、"
-                "保持现有健康习惯即可。\n\n"
+                "你是专业的健康顾问。下面是一张医学报告的原文转录，判断报告类型后，"
+                "严格按以下 Markdown 结构输出，不要输出任何思考过程，全文不超过 250 字：\n\n"
+                "### 结论\n"
+                "一句话点明报告类型与最重要的发现\n\n"
+                "### 好消息\n"
+                "- 有利的点，最多 3 条；若全部正常写：未见明显异常\n\n"
+                "### 需要注意\n"
+                "- 风险或随访点，最多 3 条；若无写：暂无特殊\n\n"
+                "### 建议\n"
+                "- 实用要点，最多 3 条，最后一条提醒遵医嘱\n\n"
                 f"报告原文转录：\n{transcript}"
             )
             suggestion = ""
@@ -352,7 +345,7 @@ async def analyze_image(
                 store.add_message(conv_id, "user", "（我上传了一张报告图片）", image_path)
                 store.add_message(
                     conv_id, "assistant",
-                    f"【报告转录】\n{transcript}\n\n【解读与建议】\n{suggestion}",
+                    f"### 报告转录\n{transcript}\n\n### 解读与建议\n{suggestion}",
                 )
                 store.touch_conversation(conv_id, first_message=transcript)
                 log_event(f"解读结果已存入会话 {conv_id}（转录 {len(transcript)} 字 / 建议 {len(suggestion)} 字）")
@@ -433,8 +426,12 @@ async def chat(request: Request, body: ChatBody):
             ]
         messages = (
             [{"role": "system", "content":
-                "你是 MedButler 私人健康管家，用通俗中文回答健康问题，"
-                "给出实用建议，篇幅控制在 300 字以内，重要提醒放在最后（以医生意见为准）。"}]
+                "你是 MedButler 私人健康管家。用通俗中文回答健康问题，全文不超过 200 字，"
+                "严格按以下 Markdown 结构输出，小节名保持不变：\n\n"
+                "### 结论\n一句话直接回答\n\n"
+                "### 原因\n- 简短要点，最多 3 条\n\n"
+                "### 建议\n- 简短要点，最多 3 条\n\n"
+                "### 提醒\n一句话，以医生意见为准"}]
             + history_msgs
             + [{"role": "user", "content": message}]
         )
