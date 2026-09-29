@@ -58,6 +58,8 @@ class Cfg:
     # 思考防复读：贪心解码(temp 0.0)下思考易陷入循环，加重复惩罚打断
     VL_REPEAT_PENALTY = _get("VL_REPEAT_PENALTY", 1.1, float)
     VL_REPEAT_LAST_N = _get("VL_REPEAT_LAST_N", 256, int)
+    # 频率惩罚：按 token 累计出现次数惩罚，专治句子级变体循环（0=关闭）
+    VL_FREQUENCY_PENALTY = _get("VL_FREQUENCY_PENALTY", 0.3, float)
 
     # LLM 生成（文本，关思考）
     LLM_MAX_TOKENS = _get("LLM_MAX_TOKENS", 2048, int)

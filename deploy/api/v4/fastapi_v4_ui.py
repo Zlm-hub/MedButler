@@ -77,6 +77,23 @@ def _clean_content_ok(text):
     """content 干净正文判断：非空且开头不是思考/分析废话"""
     return bool(text and not re.match(r"^(分析|解读|首先|思考|好的|用户|根据|让我)", text[:10]))
 
+def _vl_temperature(attempt):
+    """读图温度阶梯：首次 0.0（稳定），重试逐次升温打破复读循环"""
+    if attempt == 0:
+        return 0.0
+    return min(1.0, cfg.VL_RETRY_TEMPERATURE + 0.3 * (attempt - 1))
+
+def _thinking_looped(text):
+    """思考复读检测：最近 400 字内同一 >=16 字片段出现 >=3 次判定为循环"""
+    if len(text) < 120:
+        return False
+    tail = text[-400:]
+    frag_len = 16
+    for i in range(0, len(tail) - frag_len + 1, 8):
+        if tail.count(tail[i:i + frag_len]) >= 3:
+            return True
+    return False
+
 async def _iter_sse_lines(resp):
     """把 httpx 流式响应解析成 delta 字典序列"""
     async for line in resp.aiter_lines():
@@ -148,9 +165,10 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                         }
                     ],
                     "max_tokens": cfg.VL_MAX_TOKENS,
-                    "temperature": 0.0 if attempt == 0 else cfg.VL_RETRY_TEMPERATURE,
+                    "temperature": _vl_temperature(attempt),
                     "repeat_penalty": cfg.VL_REPEAT_PENALTY,
                     "repeat_last_n": cfg.VL_REPEAT_LAST_N,
+                    "frequency_penalty": cfg.VL_FREQUENCY_PENALTY,
                     "stream": True,
                 }
                 log_event(
@@ -159,6 +177,7 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                 )
                 t_vl = Timer()
                 reasoning_parts, content_parts = [], []
+                reasoning_acc, loop_aborted = "", False
                 try:
                     # 每次调用使用全新连接：llama.cpp 在多模态请求之后的复用连接上会返回 404
                     async with httpx.AsyncClient(timeout=STREAM_TIMEOUT) as client:
@@ -167,6 +186,16 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                             async for rc, cc in _iter_sse_lines(resp):
                                 if rc:
                                     reasoning_parts.append(rc)
+                                    reasoning_acc += rc
+                                    if _thinking_looped(reasoning_acc):
+                                        # 复读循环：立即断开，不再等它烧完 4096 tokens
+                                        loop_aborted = True
+                                        log_event(
+                                            f"第 {attempt + 1} 次读图思考陷入复读循环，提前中断"
+                                            f"（耗时 {t_vl.elapsed():.2f}s，已产出思考 {len(reasoning_acc)} 字）",
+                                            level="warning",
+                                        )
+                                        break
                                     # 思考过程实时推给前端（浅色展示）
                                     yield emit({"stage": "vl_thinking", "attempt": attempt, "text": rc})
                                 if cc:
@@ -185,6 +214,20 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
 
                 _rc = "".join(reasoning_parts).strip()
                 _c = "".join(content_parts).strip()
+
+                # 复读被掐断：重试换温度，最后一次则只信正文（思考是垃圾复读）
+                if loop_aborted:
+                    if attempt < cfg.VL_MAX_ATTEMPTS - 1:
+                        log_event(
+                            f"准备第 {attempt + 2} 次重试（换温度 {_vl_temperature(attempt + 1):.2f}）",
+                            level="warning",
+                        )
+                        yield emit({"stage": "vl_retry", "attempt": attempt + 1, "reason": "think loop"})
+                        continue
+                    log_event("已用完全部尝试且思考均循环，只取正文兜底", level="warning")
+                    raw_summary = _c
+                    break
+
                 accepted = _clean_content_ok(_c)
                 verdict = "采纳" if accepted else "结论不干净，不采纳"
                 log_event(
@@ -196,7 +239,10 @@ async def analyze_image(files: Annotated[list[bytes], File()]):
                     break
                 if attempt < cfg.VL_MAX_ATTEMPTS - 1:
                     # 本次未采纳：前端清空半成品结论后重试
-                    log_event(f"准备第 {attempt + 2} 次重试（换温度 {cfg.VL_RETRY_TEMPERATURE:.2f}）", level="warning")
+                    log_event(
+                        f"准备第 {attempt + 2} 次重试（换温度 {_vl_temperature(attempt + 1):.2f}）",
+                        level="warning",
+                    )
                     yield emit({"stage": "vl_retry", "attempt": attempt + 1, "reason": "content not clean"})
                 else:
                     log_event(f"已用完 {cfg.VL_MAX_ATTEMPTS} 次尝试，用最后一次输出兜底", level="warning")
