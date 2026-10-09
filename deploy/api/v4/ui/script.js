@@ -157,6 +157,9 @@
         scrollBottom();
     }
 
+    // 暴露给 report.js（报告存档视图点击回看时调用）
+    if (window.MedShell) window.MedShell.openConversation = openConversation;
+
     // 登录态变化（auth.js 通知）：刷新侧栏会话区；登出则清空本地状态
     window.MedShell.onAuthChanged = (user) => {
         currentConvId = '';

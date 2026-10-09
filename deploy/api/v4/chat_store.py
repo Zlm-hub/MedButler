@@ -95,6 +95,32 @@ def list_conversations(username: str) -> list[dict]:
     return [{"id": r[0], "title": r[1], "updated_at": r[2]} for r in rows]
 
 
+def list_report_conversations(username: str) -> list[dict]:
+    """只列出含上传图片（报告）的会话，附带首张图相对路径供缩略图使用。"""
+    conn = _db()
+    rows = conn.execute(
+        "SELECT c.id, c.title, c.updated_at FROM conversations c "
+        "WHERE c.username=? AND EXISTS ("
+        "  SELECT 1 FROM messages m WHERE m.conv_id=c.id AND m.image_path<>''"
+        ") ORDER BY c.updated_at DESC LIMIT 50",
+        (username,),
+    ).fetchall()
+    out = []
+    for cid, title, updated in rows:
+        r = conn.execute(
+            "SELECT image_path FROM messages WHERE conv_id=? AND image_path<>'' ORDER BY id LIMIT 1",
+            (cid,),
+        ).fetchone()
+        out.append({
+            "id": cid,
+            "title": title,
+            "updated_at": updated,
+            "thumb": r[0] if r else "",
+        })
+    conn.close()
+    return out
+
+
 def conversation_owner(conv_id: str) -> str | None:
     conn = _db()
     row = conn.execute("SELECT username FROM conversations WHERE id=?", (conv_id,)).fetchone()

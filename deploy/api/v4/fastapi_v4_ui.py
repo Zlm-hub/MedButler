@@ -526,6 +526,13 @@ def api_list_conversations(request: Request):
     return {"items": store.list_conversations(user["username"])}
 
 
+@app.get("/api/chat/reports")
+def api_list_reports(request: Request):
+    """报告存档：只返回含上传图片（报告）的会话，供前端归档视图使用。"""
+    user = _require_user(request)
+    return {"items": store.list_report_conversations(user["username"])}
+
+
 @app.get("/api/chat/conversations/{conv_id}/messages")
 def api_get_messages(conv_id: str, request: Request):
     user = _require_user(request)

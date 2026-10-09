@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MedButler · 私人健康管家</title>
     <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="stylesheet" href="style.css?v=20260929m">
+    <link rel="stylesheet" href="style.css?v=20261009a">
 </head>
 <body>
     <!-- ============ 主应用视图 ============ -->
@@ -23,6 +23,7 @@
 
             <nav class="sidebar-nav">
                 <a class="nav-item active" data-nav="chat"><span>💬</span> 健康对话</a>
+                <a class="nav-item" id="reportEntry" style="display:none"><span>📁</span> 报告存档</a>
             </nav>
 
             <div class="conv-section" id="convSection" style="display:none">
@@ -128,8 +129,20 @@
         <a class="admin-back" id="adminBack">← 返回首页</a>
     </div>
 
-    <script src="auth.js?v=20261009a"></script>
-    <script src="script.js?v=20261009a"></script>
+    <!-- ============ 报告存档视图 ============ -->
+    <div id="reportArchiveView" class="report-page hidden">
+        <div class="report-head">
+            <h1>报告存档</h1>
+            <p class="report-sub">你上传并解读过的检验报告都在这里，点击卡片可回看原图与完整解读。</p>
+        </div>
+        <div class="report-grid" id="reportGrid"></div>
+        <div class="report-msg" id="reportMsg"></div>
+        <a class="report-back" id="reportBack">← 返回对话</a>
+    </div>
+
+    <script src="auth.js?v=20261009b"></script>
+    <script src="script.js?v=20261009b"></script>
+    <script src="report.js?v=20261009b"></script>
     <script src="admin.js?v=20260929a"></script>
 </body>
 </html>

@@ -9,6 +9,7 @@
         app: document.getElementById('appView'),
         auth: document.getElementById('authView'),
         profile: document.getElementById('profileView'),
+        reports: document.getElementById('reportArchiveView'),
     };
     let currentUser = null;
     let authMode = 'login';
@@ -56,6 +57,9 @@
             box.querySelector('#sideLogin').onclick = () => openAuth('login');
             box.querySelector('#sideRegister').onclick = () => openAuth('register');
         }
+        // 报告存档入口：仅登录后显示（任何角色均可看自己的报告）
+        const rep = document.getElementById('reportEntry');
+        if (rep) rep.style.display = currentUser ? '' : 'none';
     }
 
     function escapeHtml(s) {
