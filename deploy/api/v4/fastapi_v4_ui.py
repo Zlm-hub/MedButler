@@ -374,6 +374,11 @@ async def analyze_image(
 def recent_logs(lines: int = 200):
     return get_recent_logs(lines)
 
+# 公开配置：前端据此决定是否强制登录门（无需鉴权）
+@app.get("/api/config")
+def api_config():
+    return {"require_login": bool(cfg.REQUIRE_LOGIN)}
+
 # ---------- 健康问答（文字对话，/chat）：同一模型第二角色，B 方案同源 ----------
 class ChatBody(BaseModel):
     message: str

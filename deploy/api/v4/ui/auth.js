@@ -18,13 +18,21 @@
         Object.entries(views).forEach(([k, el]) => el.classList.toggle('hidden', k !== name));
         if (name === 'profile') renderProfile();
     }
-    window.MedShell = { showView, getUser: () => currentUser };
+    window.MedShell = { showView, getUser: () => currentUser, openAuth };
 
     // 登录态变更时通知下游（script.js 挂 window.MedShell.onAuthChanged）
     function notifyAuthChanged() {
         if (typeof window.MedShell.onAuthChanged === 'function') {
             window.MedShell.onAuthChanged(currentUser);
         }
+    }
+
+    // 强制登录门：require_login 且未登录时，隐藏「返回首页」并强制停在登录页
+    function applyLoginGate() {
+        const gated = !!window.MedShell.requireLogin && !currentUser;
+        const back = document.getElementById('authBack');
+        if (back) back.style.display = gated ? 'none' : '';
+        if (gated) showView('auth');
     }
 
     /* ---------- 侧栏用户区 ---------- */
@@ -96,6 +104,7 @@
                 renderSidebarUser();
                 showView('app');
                 notifyAuthChanged();
+                applyLoginGate();
             }
         } catch (e) {
             errEl.textContent = '网络异常，请重试';
@@ -130,6 +139,7 @@
         currentUser = null;
         renderSidebarUser();
         notifyAuthChanged();
+        applyLoginGate();
         openAuth('login');
     }
 
@@ -146,14 +156,28 @@
     document.getElementById('profileEntry').onclick = () => showView('profile');
 
     /* ---------- 初始化 ---------- */
-    fetch('/api/auth/me')
-        .then(r => (r.ok ? r.json() : null))
-        .then(user => {
-            currentUser = user;
-            renderSidebarUser();
-            notifyAuthChanged();
-            // 深链：#/auth 直接打开登录页（未登录时）
-            if (location.hash === '#auth' && !user) openAuth('login');
-        })
-        .catch(() => renderSidebarUser());
+    async function boot() {
+        // 先拿公开配置（是否强制登录），供登录门使用
+        try {
+            const r = await fetch('/api/config');
+            if (r.ok) {
+                const d = await r.json().catch(() => ({}));
+                window.MedShell.requireLogin = !!d.require_login;
+            }
+        } catch (e) { /* 配置拿不到就按开放处理 */ }
+        if (window.MedShell.requireLogin === undefined) window.MedShell.requireLogin = false;
+
+        let user = null;
+        try {
+            const r = await fetch('/api/auth/me');
+            if (r.ok) user = await r.json();
+        } catch (e) { /* 未登录 */ }
+        currentUser = user;
+        renderSidebarUser();
+        applyLoginGate();
+        notifyAuthChanged();
+        // 深链：#auth 直接打开登录页（未登录时）
+        if (location.hash === '#auth' && !user) openAuth('login');
+    }
+    boot();
 })();

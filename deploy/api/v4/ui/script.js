@@ -250,6 +250,11 @@
 
     /* ============ 健康问答（/chat） ============ */
     async function sendChat(message) {
+        // 强制登录门：未登录直接跳转登录页（服务端也会拒绝，这里做前置拦截避免「先输再报错」）
+        if (window.MedShell && window.MedShell.requireLogin && !loggedIn()) {
+            if (window.MedShell.openAuth) window.MedShell.openAuth('login');
+            return;
+        }
         busy = true;
         refreshSendState();
         hideWelcome();
@@ -316,6 +321,11 @@
 
     /* ============ 报告解读（/image） ============ */
     async function sendImage(caption) {
+        // 强制登录门：同 sendChat
+        if (window.MedShell && window.MedShell.requireLogin && !loggedIn()) {
+            if (window.MedShell.openAuth) window.MedShell.openAuth('login');
+            return;
+        }
         busy = true;
         refreshSendState();
         hideWelcome();
