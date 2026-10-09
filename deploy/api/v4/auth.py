@@ -47,6 +47,10 @@ def _db():
             created_at TEXT DEFAULT (datetime('now','localtime'))
         )"""
     )
+    # 迁移：新增 is_active 列（首次启动或老库；已有列则跳过）
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(users)")]
+    if "is_active" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
     return conn
 
 
@@ -156,8 +160,10 @@ def register(body: AuthBody, response: Response):
 def login(body: AuthBody, response: Response):
     u = body.username.strip()
     conn = _db()
-    row = conn.execute("SELECT password_hash, role FROM users WHERE username=?", (u,)).fetchone()
+    row = conn.execute("SELECT password_hash, role, is_active FROM users WHERE username=?", (u,)).fetchone()
     conn.close()
+    if row and row[2] == 0:
+        raise HTTPException(status_code=403, detail="该账号已被禁用，请联系管理员")
     if not row or not _verify_password(body.password, row[0]):
         raise HTTPException(status_code=401, detail="用户名或密码错误")
     response.set_cookie(COOKIE_NAME, _make_token(u, row[1]), httponly=True, samesite="lax", max_age=SESSION_TTL)
@@ -179,3 +185,54 @@ def me(request: Request):
     row = conn.execute("SELECT created_at FROM users WHERE username=?", (user["username"],)).fetchone()
     conn.close()
     return {**user, "created_at": row[0] if row else None}
+
+
+def require_admin(request: Request) -> dict:
+    """管理员鉴权：非 admin 或已登录返回 403。"""
+    user = get_current_user(request)
+    if not user or user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    return user
+
+
+@router.get("/admin/users")
+def admin_list_users(request: Request):
+    require_admin(request)
+    conn = _db()
+    rows = conn.execute(
+        "SELECT username, role, created_at, is_active FROM users ORDER BY id"
+    ).fetchall()
+    conn.close()
+    return {"items": [
+        {"username": r[0], "role": r[1], "created_at": r[2], "is_active": bool(r[3])}
+        for r in rows
+    ]}
+
+
+@router.post("/admin/users/{username}/disable")
+def admin_disable_user(username: str, request: Request):
+    require_admin(request)
+    conn = _db()
+    target = conn.execute("SELECT role FROM users WHERE username=?", (username,)).fetchone()
+    if not target:
+        conn.close(); raise HTTPException(status_code=404, detail="用户不存在")
+    if target[0] == "admin":
+        cnt = conn.execute(
+            "SELECT COUNT(*) FROM users WHERE role='admin' AND is_active=1"
+        ).fetchone()[0]
+        if cnt <= 1:
+            conn.close(); raise HTTPException(status_code=400, detail="不能禁用最后一个管理员")
+    conn.execute("UPDATE users SET is_active=0 WHERE username=?", (username,))
+    conn.commit(); conn.close()
+    return {"ok": True}
+
+
+@router.post("/admin/users/{username}/enable")
+def admin_enable_user(username: str, request: Request):
+    require_admin(request)
+    conn = _db()
+    if not conn.execute("SELECT 1 FROM users WHERE username=?", (username,)).fetchone():
+        conn.close(); raise HTTPException(status_code=404, detail="用户不存在")
+    conn.execute("UPDATE users SET is_active=1 WHERE username=?", (username,))
+    conn.commit(); conn.close()
+    return {"ok": True}

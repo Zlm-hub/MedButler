@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MedButler · 私人健康管家</title>
     <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="stylesheet" href="style.css?v=20260929l">
+    <link rel="stylesheet" href="style.css?v=20260929m">
 </head>
 <body>
     <!-- ============ 主应用视图 ============ -->
@@ -31,6 +31,7 @@
             </div>
 
             <div class="sidebar-spacer"></div>
+            <a class="nav-item" id="adminEntry" style="display:none"><span>🛠</span> 管理后台</a>
             <div class="sidebar-user" id="sidebarUser"></div>
             <a class="nav-item" id="profileEntry"><span>👤</span> 个人中心</a>
         </aside>
@@ -118,7 +119,17 @@
         </div>
     </div>
 
-    <script src="auth.js?v=20260929i"></script>
+    <!-- ============ 管理后台视图 ============ -->
+    <div id="adminView" class="admin-page hidden">
+        <h1>用户管理</h1>
+        <p class="admin-sub">查看与禁用/启用账号。禁用仅阻止后续登录，已登录会话仍在线直到过期。</p>
+        <div class="admin-table" id="adminUserList"></div>
+        <div class="admin-msg" id="adminMsg"></div>
+        <a class="admin-back" id="adminBack">← 返回首页</a>
+    </div>
+
+    <script src="auth.js?v=20260929j"></script>
     <script src="script.js?v=20260929l"></script>
+    <script src="admin.js?v=20260929a"></script>
 </body>
 </html>

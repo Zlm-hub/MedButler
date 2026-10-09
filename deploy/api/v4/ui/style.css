@@ -616,3 +616,23 @@ body {
     .feature-grid { grid-template-columns: 1fr; }
     .msg .bubble { max-width: 92%; }
 }
+
+/* ===== 管理后台（admin.js 渲染） ===== */
+.admin-page { max-width: 760px; margin: 36px auto; padding: 0 20px; }
+.admin-page h1 { font-size: 20px; color: var(--primary-dark); margin-bottom: 4px; }
+.admin-sub { color: #6b7c78; font-size: 13px; margin-bottom: 18px; line-height: 1.6; }
+.admin-table { border: 1px solid var(--primary-light); border-radius: 12px; overflow: hidden; }
+.admin-row { display: grid; grid-template-columns: 1.5fr 0.8fr 1.4fr 0.9fr auto; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--primary-light); font-size: 14px; }
+.admin-row:last-child { border-bottom: none; }
+.admin-row .adm-name { font-weight: 600; color: var(--primary-dark); }
+.admin-row .adm-role { color: #6b7c78; }
+.admin-row .adm-time { color: #9fb5b0; font-size: 12px; }
+.badge { padding: 2px 10px; border-radius: 999px; font-size: 12px; }
+.badge.ok { background: #e3f4ee; color: #1f9d6b; }
+.badge.off { background: #fde8e8; color: #dc2626; }
+.adm-btn { border: none; border-radius: 8px; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: opacity .15s; }
+.adm-btn.primary { background: var(--primary); color: #fff; }
+.adm-btn.danger { background: #fff; color: #dc2626; border: 1px solid #f3c9c9; }
+.adm-btn:hover { opacity: .88; }
+.admin-msg { margin-top: 14px; color: #6b7c78; font-size: 13px; }
+.admin-back { display: inline-block; margin-top: 18px; color: var(--primary); cursor: pointer; font-size: 13px; }
